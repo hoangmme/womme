@@ -20,9 +20,10 @@ CONF_DIR="/etc/wo/plugins.d"
 mkdir -p "$PLUGIN_DIR"
 mkdir -p "$CONF_DIR"
 
-echo "Đang tải source code plugin từ Github..."
-curl -sL "$REPO_RAW_URL/womme.py" -o "$PLUGIN_DIR/womme.py"
-curl -sL "$REPO_RAW_URL/womme-daemon.py" -o "$PLUGIN_DIR/womme-daemon.py"
+echo "Đang tải source code plugin từ Github (bypass cache)..."
+CACHE_BUSTER=$(date +%s)
+curl -sL "$REPO_RAW_URL/womme.py?t=$CACHE_BUSTER" -o "$PLUGIN_DIR/womme.py"
+curl -sL "$REPO_RAW_URL/womme-daemon.py?t=$CACHE_BUSTER" -o "$PLUGIN_DIR/womme-daemon.py"
 
 chmod +x "$PLUGIN_DIR/womme-daemon.py"
 
