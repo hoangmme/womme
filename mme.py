@@ -246,7 +246,7 @@ def cmd_site_pause(args):
 if (-f $document_root/mme-maintenance.html) {
     set $maintenance 1;
 }
-if ($uri ~* "^/(wp-admin|wp-login\\.php|zogin)") {
+if ($request_uri ~* "^/(wp-admin|wp-login\\.php|zogin)") {
     set $maintenance 0;
 }
 if ($maintenance = 1) {
