@@ -347,6 +347,35 @@ def cmd_site_clone(args):
 
     log_info(f"Thành công! Site {source} đã được nhân bản hoàn chỉnh sang {dest}.")
 
+import re
+
+def toggle_wp_config_constant(domain, constant_name, value):
+    config_path = f"/var/www/{domain}/wp-config.php"
+    if not os.path.exists(config_path):
+        config_path = f"/var/www/{domain}/htdocs/wp-config.php"
+        if not os.path.exists(config_path):
+            log_error(f"Không tìm thấy wp-config.php cho {domain}")
+            return False
+
+    with open(config_path, 'r', encoding='utf-8') as f:
+        content = f.read()
+
+    # Xóa định nghĩa cũ nếu có
+    pattern = rf"(?i)\s*define\s*\(\s*['\"]{constant_name}['\"]\s*,[^;]+;\s*"
+    content = re.sub(pattern, "\n", content)
+
+    # Chèn định nghĩa mới vào trước dòng /* That's all, stop editing! */
+    insert_str = f"\ndefine('{constant_name}', {value});\n"
+    if "/* That's all, stop editing!" in content:
+        content = content.replace("/* That's all, stop editing!", insert_str + "/* That's all, stop editing!")
+    else:
+        # Fallback chèn vào cuối
+        content += insert_str
+
+    with open(config_path, 'w', encoding='utf-8') as f:
+        f.write(content)
+    return True
+
 def cmd_site_lockon(args):
     domain = args.domain
     site_dir = f"/var/www/{domain}"
@@ -360,8 +389,8 @@ def cmd_site_lockon(args):
 
     # 1. Tắt sửa theme/plugin & Cài đặt theme/plugin
     log_info("Đang cập nhật wp-config.php (DISALLOW_FILE_EDIT, DISALLOW_FILE_MODS)...")
-    subprocess.run(f"wp config set DISALLOW_FILE_EDIT true --raw --path={htdocs} --allow-root", shell=True)
-    subprocess.run(f"wp config set DISALLOW_FILE_MODS true --raw --path={htdocs} --allow-root", shell=True)
+    toggle_wp_config_constant(domain, "DISALLOW_FILE_EDIT", "true")
+    toggle_wp_config_constant(domain, "DISALLOW_FILE_MODS", "true")
 
     # 2. Chặn PHP execution trong uploads và cache
     log_info("Đang tạo rule Nginx chặn thực thi PHP trong uploads/cache...")
@@ -404,8 +433,8 @@ def cmd_site_lockoff(args):
 
     # 1. Bật lại sửa theme/plugin
     log_info("Đang cập nhật wp-config.php (Cho phép sửa file)...")
-    subprocess.run(f"wp config set DISALLOW_FILE_EDIT false --raw --path={htdocs} --allow-root", shell=True)
-    subprocess.run(f"wp config set DISALLOW_FILE_MODS false --raw --path={htdocs} --allow-root", shell=True)
+    toggle_wp_config_constant(domain, "DISALLOW_FILE_EDIT", "false")
+    toggle_wp_config_constant(domain, "DISALLOW_FILE_MODS", "false")
 
     # 2. Xóa rule Nginx
     conf_path = f"{site_dir}/conf/nginx/mme-lock.conf"
