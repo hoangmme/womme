@@ -349,7 +349,31 @@ def cmd_site_clone(args):
 
 # ==================== MAIN PARSER ====================
 
+CUSTOM_HELP = """
+==================================================
+ WordOps MMe CLI Tool - Trợ lý vận hành siêu tốc
+==================================================
+
+ Các lệnh có thể dùng:
+ mme deploy add <domain>      (Thêm cấu hình Auto Deploy)
+ mme deploy list              (Xem danh sách Auto Deploy)
+ mme deploy run <domain>      (Chạy Deploy thủ công)
+ mme deploy rollback <domain> (Khôi phục bản cũ)
+ mme deploy logs <domain>     (Xem nhật ký Deploy)
+ mme site pause <domain>      (Bật chế độ bảo trì)
+ mme site start <domain>      (Tắt chế độ bảo trì)
+ mme role                     (Fix quyền 644/755/www-data)
+ mme site clone <old> <new>   (Nhân bản website)
+ 
+ Gõ `mme <lệnh> --help` để xem chi tiết cách dùng của một nhóm lệnh.
+==================================================
+"""
+
 def main():
+    if len(sys.argv) == 1 or (len(sys.argv) == 2 and sys.argv[1] in ["-h", "--help"]):
+        print(CUSTOM_HELP.strip())
+        sys.exit(0)
+
     parser = argparse.ArgumentParser(prog="mme", description="WordOps MMe CLI Tool - Trợ lý vận hành siêu tốc")
     subparsers = parser.add_subparsers(dest="command", required=True)
     
