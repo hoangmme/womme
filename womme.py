@@ -346,8 +346,7 @@ class WOMMEDeployController(CementBaseController):
             (['--branch'], dict(help='Branch cần deploy (Mặc định: main)')),
             (['--path'], dict(help='Đường dẫn thư mục đích trong htdocs (VD: wp-content/themes/mme hoặc /)')),
             (['--build'], dict(help='Lệnh build chạy sau khi clone (VD: "npm ci && npm run build")')),
-            (['domain_or_action'], dict(help='Tên miền (hoặc action như list)')),
-            (['domain'], dict(nargs='?', help='Tên miền (cho lệnh run, rollback, logs)')),
+            (['domain'], dict(nargs='?', help='Tên miền (cho lệnh add, run, rollback, logs)')),
         ]
 
     @expose(help="Quản lý job auto deploy (wo mme deploy <add|list|run|rollback|logs>)")
@@ -356,7 +355,7 @@ class WOMMEDeployController(CementBaseController):
 
     @expose(help="Thêm cấu hình auto deploy cho tên miền")
     def add(self):
-        domain = self.app.pargs.domain_or_action
+        domain = self.app.pargs.domain
         if not domain:
             Log.error(self, "Lỗi: Thiếu tên miền.")
             return
@@ -401,7 +400,7 @@ class WOMMEDeployController(CementBaseController):
 
     @expose(help="Chạy thủ công quá trình deploy (không cần chờ Webhook)")
     def run(self):
-        domain = self.app.pargs.domain_or_action
+        domain = self.app.pargs.domain
         if not domain:
             Log.error(self, "Lỗi: Vui lòng nhập tên miền (vd: wo mme deploy run mme.vn)")
             return
@@ -414,7 +413,7 @@ class WOMMEDeployController(CementBaseController):
 
     @expose(help="Khôi phục lại phiên bản trước đó (Rollback)")
     def rollback(self):
-        domain = self.app.pargs.domain_or_action
+        domain = self.app.pargs.domain
         if not domain:
             Log.error(self, "Lỗi: Vui lòng nhập tên miền (vd: wo mme deploy rollback mme.vn)")
             return
@@ -427,7 +426,7 @@ class WOMMEDeployController(CementBaseController):
 
     @expose(help="Xem nhật ký deploy của tên miền")
     def logs(self):
-        domain = self.app.pargs.domain_or_action
+        domain = self.app.pargs.domain
         if not domain:
             Log.error(self, "Lỗi: Vui lòng nhập tên miền (vd: wo mme deploy logs mme.vn)")
             return
