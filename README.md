@@ -74,7 +74,16 @@ wo mme deploy rollback mme.vn
 
 ---
 
-## Tính năng bổ trợ: Site Clone
+## 🛠 Tính năng bổ trợ
+
+### 1. Fix quyền file/folder cấp tốc (`role`)
+Phân quyền tự động 644 cho file, 755 cho thư mục và đổi chủ sở hữu toàn bộ thành `www-data:www-data` cho thư mục hiện tại (bao gồm cả thư mục con). Rất tiện khi bạn lỡ tay up file qua root SFTP.
+```bash
+cd /var/www/domain.com/htdocs
+wo mme role
+```
+
+### 2. Nhân bản Site (`clone`)
 Lệnh này cho phép nhân bản nguyên vẹn một site sang domain mới ngay trên cùng server:
 ```bash
 wo site clone old-domain.com new-domain.com --le --force

@@ -118,6 +118,22 @@ class WOMMEBaseController(CementBaseController):
     def default(self):
         self.app.args.print_help()
 
+    @expose(help="Tự động cấp quyền 644 cho file, 755 cho thư mục và chown www-data:www-data cho thư mục hiện tại")
+    def role(self):
+        cwd = os.getcwd()
+        Log.info(self, f"Đang cấp lại quyền cho toàn bộ file và thư mục tại: {cwd}")
+        
+        Log.info(self, "Đang đổi chủ sở hữu (chown -R www-data:www-data)...")
+        subprocess.run(["chown", "-R", "www-data:www-data", cwd])
+        
+        Log.info(self, "Đang phân quyền thư mục (chmod 755)...")
+        subprocess.run(["find", cwd, "-type", "d", "-exec", "chmod", "755", "{}", "+"])
+        
+        Log.info(self, "Đang phân quyền file (chmod 644)...")
+        subprocess.run(["find", cwd, "-type", "f", "-exec", "chmod", "644", "{}", "+"])
+        
+        Log.info(self, "Hoàn tất cấp quyền!")
+
 class WOMMEDeployController(CementBaseController):
     class Meta:
         label = 'deploy'
