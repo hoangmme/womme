@@ -42,7 +42,7 @@ Khi khai báo trên Github, bạn sử dụng Payload URL dạng: `https://deplo
 Cấu hình một domain để tự động nhận code mỗi khi push lên Git. Có thể chọn đường dẫn là toàn bộ site (`/`) hoặc chỉ 1 thư mục theme/plugin.
 
 ```bash
-wo mme deploy add mme.vn \
+mme deploy add mme.vn \
   --repo=git@github.com:hoangmme/mme-theme.git \
   --branch=main \
   --path=wp-content/themes/mme \
@@ -53,23 +53,23 @@ wo mme deploy add mme.vn \
 ### 2. Chạy Deploy thủ công (`run`)
 Bấm nút kéo code, build và deploy thủ công không cần đợi Webhook (thường dùng để test lần đầu):
 ```bash
-wo mme deploy run mme.vn
+mme deploy run mme.vn
 ```
 
 ### 3. Xem danh sách (`list`)
 ```bash
-wo mme deploy list
+mme deploy list
 ```
 
 ### 4. Xem nhật ký Deploy (`logs`)
 ```bash
-wo mme deploy logs mme.vn
+mme deploy logs mme.vn
 ```
 
 ### 5. Rollback khẩn cấp (`rollback`)
 Trong trường hợp bản code mới bị lỗi sập site, gõ lệnh này để trỏ symlink lùi về bản release liền kề trước đó:
 ```bash
-wo mme deploy rollback mme.vn
+mme deploy rollback mme.vn
 ```
 
 ---
@@ -80,21 +80,21 @@ wo mme deploy rollback mme.vn
 Phân quyền tự động 644 cho file, 755 cho thư mục và đổi chủ sở hữu toàn bộ thành `www-data:www-data` cho thư mục hiện tại (bao gồm cả thư mục con). Rất tiện khi bạn lỡ tay up file qua root SFTP.
 ```bash
 cd /var/www/domain.com/htdocs
-wo mme role
+mme role
 ```
 
 ### 2. Bật/Tắt chế độ bảo trì (`pause` / `start`)
 Chỉ với một dòng lệnh, toàn bộ traffic truy cập vào website sẽ ngay lập tức được chuyển hướng sang giao diện bảo trì cực kỳ chuyên nghiệp (kèm mã HTTP 503 chuẩn SEO) mà không làm ảnh hưởng đến mã nguồn gốc.
 ```bash
-wo site pause domain.com
+mme site pause domain.com
 ```
 Khi nâng cấp hoặc sửa lỗi xong, để mở lại website bình thường:
 ```bash
-wo site start domain.com
+mme site start domain.com
 ```
 
 ### 3. Nhân bản Site (`clone`)
 Lệnh này cho phép nhân bản nguyên vẹn một site sang domain mới ngay trên cùng server:
 ```bash
-wo site clone old-domain.com new-domain.com --le --force
+mme site clone old-domain.com new-domain.com --le --force
 ```
