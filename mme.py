@@ -347,6 +347,78 @@ def cmd_site_clone(args):
 
     log_info(f"Thành công! Site {source} đã được nhân bản hoàn chỉnh sang {dest}.")
 
+def cmd_site_lockon(args):
+    domain = args.domain
+    site_dir = f"/var/www/{domain}"
+    htdocs = f"{site_dir}/htdocs"
+    
+    if not os.path.exists(htdocs):
+        log_error(f"Site {domain} không tồn tại.")
+        return
+
+    log_info(f"Đang BẬT khóa bảo mật (Lock ON) cho {domain}...")
+
+    # 1. Tắt sửa theme/plugin & Cài đặt theme/plugin
+    log_info("Đang cập nhật wp-config.php (DISALLOW_FILE_EDIT, DISALLOW_FILE_MODS)...")
+    subprocess.run(f"wp config set DISALLOW_FILE_EDIT true --raw --path={htdocs} --allow-root", shell=True)
+    subprocess.run(f"wp config set DISALLOW_FILE_MODS true --raw --path={htdocs} --allow-root", shell=True)
+
+    # 2. Chặn PHP execution trong uploads và cache
+    log_info("Đang tạo rule Nginx chặn thực thi PHP trong uploads/cache...")
+    nginx_conf_dir = f"{site_dir}/conf/nginx"
+    os.makedirs(nginx_conf_dir, exist_ok=True)
+    conf_path = f"{nginx_conf_dir}/mme-lock.conf"
+    
+    nginx_rules = """# MMe Lock: Chặn thực thi PHP trong thư mục nguy hiểm
+location ~* /wp-content/(?:uploads|cache)/.*\\.php$ {
+    deny all;
+    access_log off;
+    log_not_found off;
+}"""
+    with open(conf_path, 'w', encoding='utf-8') as f:
+        f.write(nginx_rules)
+    
+    # Reload Nginx
+    subprocess.run(["wo", "stack", "reload", "--nginx"], check=False)
+
+    # 3. Chạy role cho domain
+    log_info("Đang chuẩn hóa quyền thư mục (mme role)...")
+    log_info("Đổi chủ sở hữu sang www-data:www-data...")
+    subprocess.run(["chown", "-R", "www-data:www-data", site_dir])
+    log_info("Phân quyền 755 cho thư mục và 644 cho file...")
+    subprocess.run(["find", site_dir, "-type", "d", "-exec", "chmod", "755", "{}", "+"])
+    subprocess.run(["find", site_dir, "-type", "f", "-exec", "chmod", "644", "{}", "+"])
+
+    log_info(f"✅ Đã BẬT khóa bảo mật thành công cho {domain}!")
+
+def cmd_site_lockoff(args):
+    domain = args.domain
+    site_dir = f"/var/www/{domain}"
+    htdocs = f"{site_dir}/htdocs"
+    
+    if not os.path.exists(htdocs):
+        log_error(f"Site {domain} không tồn tại.")
+        return
+
+    log_info(f"Đang TẮT khóa bảo mật (Lock OFF) cho {domain}...")
+
+    # 1. Bật lại sửa theme/plugin
+    log_info("Đang cập nhật wp-config.php (Cho phép sửa file)...")
+    subprocess.run(f"wp config set DISALLOW_FILE_EDIT false --raw --path={htdocs} --allow-root", shell=True)
+    subprocess.run(f"wp config set DISALLOW_FILE_MODS false --raw --path={htdocs} --allow-root", shell=True)
+
+    # 2. Xóa rule Nginx
+    conf_path = f"{site_dir}/conf/nginx/mme-lock.conf"
+    if os.path.exists(conf_path):
+        log_info("Đang gỡ bỏ rule chặn PHP Nginx...")
+        os.remove(conf_path)
+        subprocess.run(["wo", "stack", "reload", "--nginx"], check=False)
+
+    log_info("Đang chuẩn hóa quyền thư mục (mme role)...")
+    subprocess.run(["chown", "-R", "www-data:www-data", site_dir])
+
+    log_info(f"✅ Đã TẮT khóa bảo mật thành công cho {domain}! Có thể cài đặt/sửa file bình thường.")
+
 # ==================== MAIN PARSER ====================
 
 CUSTOM_HELP = """
@@ -362,6 +434,8 @@ CUSTOM_HELP = """
  mme deploy logs <domain>     (Xem nhật ký Deploy)
  mme site pause <domain>      (Bật chế độ bảo trì)
  mme site start <domain>      (Tắt chế độ bảo trì)
+ mme site lockon <domain>     (Bật khóa bảo mật site)
+ mme site lockoff <domain>    (Tắt khóa bảo mật site)
  mme role                     (Fix quyền 644/755/www-data)
  mme site clone <old> <new>   (Nhân bản website)
  mme db                       (Sửa cấu hình MySQL/MariaDB)
@@ -436,6 +510,16 @@ def main():
     site_start = site_sub.add_parser("start", help="Tắt chế độ bảo trì")
     site_start.add_argument("domain", help="Tên miền")
     site_start.set_defaults(func=cmd_site_start)
+    
+    # site lockon
+    site_lockon = site_sub.add_parser("lockon", help="Bật khóa bảo mật site")
+    site_lockon.add_argument("domain", help="Tên miền")
+    site_lockon.set_defaults(func=cmd_site_lockon)
+    
+    # site lockoff
+    site_lockoff = site_sub.add_parser("lockoff", help="Tắt khóa bảo mật site")
+    site_lockoff.add_argument("domain", help="Tên miền")
+    site_lockoff.set_defaults(func=cmd_site_lockoff)
     
     # site clone
     site_clone = site_sub.add_parser("clone", help="Nhân bản website")
