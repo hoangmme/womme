@@ -83,7 +83,17 @@ cd /var/www/domain.com/htdocs
 wo mme role
 ```
 
-### 2. Nhân bản Site (`clone`)
+### 2. Bật/Tắt chế độ bảo trì (`pause` / `start`)
+Chỉ với một dòng lệnh, toàn bộ traffic truy cập vào website sẽ ngay lập tức được chuyển hướng sang giao diện bảo trì cực kỳ chuyên nghiệp (kèm mã HTTP 503 chuẩn SEO) mà không làm ảnh hưởng đến mã nguồn gốc.
+```bash
+wo site pause domain.com
+```
+Khi nâng cấp hoặc sửa lỗi xong, để mở lại website bình thường:
+```bash
+wo site start domain.com
+```
+
+### 3. Nhân bản Site (`clone`)
 Lệnh này cho phép nhân bản nguyên vẹn một site sang domain mới ngay trên cùng server:
 ```bash
 wo site clone old-domain.com new-domain.com --le --force
