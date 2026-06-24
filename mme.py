@@ -364,10 +364,16 @@ CUSTOM_HELP = """
  mme site start <domain>      (Tắt chế độ bảo trì)
  mme role                     (Fix quyền 644/755/www-data)
  mme site clone <old> <new>   (Nhân bản website)
+ mme db                       (Sửa cấu hình MySQL/MariaDB)
  
  Gõ `mme <lệnh> --help` để xem chi tiết cách dùng của một nhóm lệnh.
 ==================================================
 """
+
+def cmd_db(args):
+    log_info("Đang mở file cấu hình MySQL (/etc/mysql/conf.d/my.cnf)...")
+    subprocess.run(["nano", "/etc/mysql/conf.d/my.cnf"])
+    log_info("Ghi nhớ chạy lệnh `wo stack reload --mysql` hoặc `systemctl restart mariadb` để áp dụng cấu hình mới.")
 
 def main():
     if len(sys.argv) == 1 or (len(sys.argv) == 2 and sys.argv[1] in ["-h", "--help"]):
@@ -376,6 +382,10 @@ def main():
 
     parser = argparse.ArgumentParser(prog="mme", description="WordOps MMe CLI Tool - Trợ lý vận hành siêu tốc")
     subparsers = parser.add_subparsers(dest="command", required=True)
+    
+    # --- db ---
+    db_parser = subparsers.add_parser("db", help="Mở trình soạn thảo sửa cấu hình MySQL")
+    db_parser.set_defaults(func=cmd_db)
     
     # --- role ---
     role_parser = subparsers.add_parser("role", help="Tự động cấp quyền 644/755/www-data cho thư mục hiện tại")
