@@ -53,6 +53,80 @@ systemctl daemon-reload
 systemctl enable womme-daemon.service
 systemctl restart womme-daemon.service
 
+echo "Đang thiết lập tính năng Auto-complete (Bấm Tab gợi ý lệnh)..."
+mkdir -p /etc/bash_completion.d
+cat <<'EOF' > /etc/bash_completion.d/mme
+_mme_completion() {
+    local cur prev words cword
+    _init_completion 2>/dev/null || {
+        COMPREPLY=()
+        local w c
+        cword=$COMP_CWORD
+        words=("${COMP_WORDS[@]}")
+        cur="${words[cword]}"
+        prev="${words[cword-1]}"
+    }
+
+    local commands="deploy site role db"
+    local deploy_commands="add list run rollback logs"
+    local site_commands="pause start lockon lockoff clone"
+    
+    # Lấy danh sách tên miền từ /var/www (bỏ qua các thư mục hệ thống của WordOps)
+    local domains=$(ls /var/www 2>/dev/null | grep -vE '^(html|22222|default)$')
+
+    if [[ $cword -eq 1 ]]; then
+        COMPREPLY=( $(compgen -W "$commands" -- "$cur") )
+        return 0
+    fi
+    
+    local cmd=${words[1]}
+    
+    if [[ $cword -eq 2 ]]; then
+        case "$cmd" in
+            deploy)
+                COMPREPLY=( $(compgen -W "$deploy_commands" -- "$cur") )
+                ;;
+            site)
+                COMPREPLY=( $(compgen -W "$site_commands" -- "$cur") )
+                ;;
+        esac
+        return 0
+    fi
+    
+    local subcmd=${words[2]}
+    
+    if [[ $cword -eq 3 ]]; then
+        case "$cmd" in
+            deploy)
+                case "$subcmd" in
+                    add|run|rollback|logs)
+                        COMPREPLY=( $(compgen -W "$domains" -- "$cur") )
+                        ;;
+                esac
+                ;;
+            site)
+                case "$subcmd" in
+                    pause|start|lockon|lockoff|clone)
+                        COMPREPLY=( $(compgen -W "$domains" -- "$cur") )
+                        ;;
+                esac
+                ;;
+        esac
+        return 0
+    fi
+    
+    if [[ $cword -eq 4 && "$cmd" == "site" && "$subcmd" == "clone" ]]; then
+        COMPREPLY=( $(compgen -W "$domains" -- "$cur") )
+        return 0
+    fi
+}
+complete -F _mme_completion mme
+EOF
+
+# Nạp lại ngay lập tức cho session hiện tại nếu người dùng chạy thủ công,
+# nhưng nếu chạy qua curl | bash thì cần lưu ý.
+source /etc/bash_completion.d/mme 2>/dev/null || true
+
 echo "=================================================="
 echo " Cài đặt THÀNH CÔNG!"
 echo " "
