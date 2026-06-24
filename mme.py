@@ -242,10 +242,17 @@ def cmd_site_pause(args):
     os.makedirs(nginx_conf_dir, exist_ok=True)
     conf_path = f"{nginx_conf_dir}/mme-maintenance.conf"
     
-    nginx_rules = """error_page 503 @mme_maintenance;
+    nginx_rules = """set $maintenance 0;
 if (-f $document_root/mme-maintenance.html) {
+    set $maintenance 1;
+}
+if ($uri ~* "^/(wp-admin|wp-login\\.php|zogin)") {
+    set $maintenance 0;
+}
+if ($maintenance = 1) {
     return 503;
 }
+error_page 503 @mme_maintenance;
 location @mme_maintenance {
     rewrite ^(.*)$ /mme-maintenance.html break;
 }"""
