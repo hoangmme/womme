@@ -210,6 +210,12 @@ def cmd_deploy_add(args):
         if path.startswith("htdocs/"):
             path = path[7:]
         path = path.strip("/")
+        
+        # Tự động thêm tên folder cho theme/plugin nếu user chỉ gõ tới wp-content/themes
+        if path.endswith("themes") or path.endswith("plugins"):
+            repo_name = repo.split("/")[-1].replace(".git", "")
+            path = f"{path}/{repo_name}"
+            print(f"[INFO] Tự động bổ sung tên thư mục vào Path: {path}")
 
     config = load_config()
     config[args.domain] = {
