@@ -67,9 +67,9 @@ _mme_completion() {
         prev="${words[cword-1]}"
     }
 
-    local commands="deploy site role db"
+    local commands="deploy site role db update"
     local deploy_commands="add list run rollback logs"
-    local site_commands="pause start lockon lockoff clone"
+    local site_commands="pause start lockon lockoff clone wpmme"
     
     # Lấy danh sách tên miền từ /var/www (bỏ qua các thư mục hệ thống của WordOps)
     local domains=$(ls /var/www 2>/dev/null | grep -vE '^(html|22222|default)$')
@@ -106,7 +106,7 @@ _mme_completion() {
                 ;;
             site)
                 case "$subcmd" in
-                    pause|start|lockon|lockoff|clone)
+                    pause|start|lockon|lockoff|clone|wpmme)
                         COMPREPLY=( $(compgen -W "$domains" -- "$cur") )
                         ;;
                 esac
@@ -146,6 +146,8 @@ echo " mme site lockoff <domain> (Tắt khóa bảo mật site)"
 echo " mme role                  (Fix quyền 644/755/www-data)"
 echo " mme site clone <old> <new> (Nhân bản website)"
 echo " mme db                    (Sửa cấu hình MySQL/MariaDB)"
+echo " mme site wpmme <domain>   (Cài & kích hoạt plugin WPMMe)"
+echo " mme update                (Cập nhật MMe CLI lên bản mới nhất)"
 echo " "
 echo " BƯỚC TIẾP THEO (Thiết lập Nginx Proxy cho Webhook):"
 echo " Để cấu hình một URL nhận Webhook bảo mật HTTPS, hãy tạo một trang proxy bằng lệnh WordOps:"

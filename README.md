@@ -98,3 +98,15 @@ Lệnh này cho phép nhân bản nguyên vẹn một site sang domain mới nga
 ```bash
 mme site clone old-domain.com new-domain.com --le --force
 ```
+
+### 4. Cài đặt plugin WPMMe (`site wpmme`)
+Tự động tải và cài đặt plugin WPMMe bản mới nhất từ Github vào site WordPress của bạn:
+```bash
+mme site wpmme domain.com
+```
+
+### 5. Cập nhật MMe CLI Tool (`update`)
+Cập nhật công cụ `mme` trên server của bạn lên phiên bản mới nhất từ Github:
+```bash
+mme update
+```
