@@ -106,12 +106,18 @@ mme site clone old-domain.com new-domain.com --le --force
 ```
 
 ### 4. Cài đặt plugin WPMMe (`site wpmme`)
-Tự động tải và cài đặt plugin WPMMe bản mới nhất từ Github vào site WordPress của bạn:
 ```bash
-mme site wpmme domain.com
+mme site wpmme mme.vn
 ```
+Lệnh này sẽ tự động tải file zip mới nhất từ Github WPMMe và cài đè vào site, đồng thời tự sửa lỗi phân quyền `mme role`.
 
-### 5. Cập nhật MMe CLI Tool (`update`)
+### 5. Cài nhanh Theme WPMMe (`thememme`)
+```bash
+mme site thememme mme.vn
+```
+Tương tự như plugin, lệnh này sẽ cài tự động Theme từ Github (hoangmme/thememme) vào site và phân quyền.
+
+### 6. Cập nhật MMe CLI Tool (`update`)
 Cập nhật công cụ `mme` trên server của bạn lên phiên bản mới nhất từ Github:
 ```bash
 mme update

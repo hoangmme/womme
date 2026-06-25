@@ -576,6 +576,7 @@ CUSTOM_HELP = """
  mme site clone <old> <new>   (Nhân bản website)
  mme db                       (Sửa cấu hình MySQL/MariaDB)
  mme site wpmme <domain>      (Cài & kích hoạt plugin WPMMe)
+ mme site thememme <domain>   (Cài & kích hoạt theme WPMMe)
  mme update                   (Cập nhật MMe CLI lên bản mới nhất)
  
  Gõ `mme <lệnh> --help` để xem chi tiết cách dùng của một nhóm lệnh.
@@ -617,6 +618,42 @@ def cmd_wpmme(args):
             subprocess.run(["find", plugin_dir, "-type", "f", "-exec", "chmod", "644", "{}", "+"])
     else:
         log_error(f"Lỗi khi cài đặt plugin:\\n{result.stderr}")
+
+def cmd_thememme(args):
+    domain = args.domain
+    site_dir = f"/var/www/{domain}"
+    if not os.path.exists(site_dir):
+        log_error(f"Site {domain} không tồn tại trong /var/www/")
+        return
+        
+    htdocs_dir = f"{site_dir}/htdocs"
+    if not os.path.exists(f"{htdocs_dir}/wp-config.php") and not os.path.exists(f"{site_dir}/wp-config.php"):
+        log_error(f"Site {domain} không phải là WordPress (không tìm thấy wp-config.php).")
+        return
+
+    log_info(f"Đang cài đặt và kích hoạt theme WPMMe cho {domain}...")
+    
+    theme_url = "https://github.com/hoangmme/thememme/archive/refs/heads/main.zip"
+    cmd = [
+        "wp", "theme", "install", theme_url,
+        "--activate",
+        f"--path={htdocs_dir}",
+        "--allow-root"
+    ]
+    
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    if result.returncode == 0:
+        log_info(f"Đã cài đặt và kích hoạt thành công theme thememme cho {domain}.")
+        
+        # Tự động phân quyền toàn bộ thư mục themes
+        theme_dir = f"{htdocs_dir}/wp-content/themes"
+        if os.path.exists(theme_dir):
+            log_info("Đang tự động phân quyền (mme role) cho thư mục themes...")
+            subprocess.run(["chown", "-R", "www-data:www-data", theme_dir])
+            subprocess.run(["find", theme_dir, "-type", "d", "-exec", "chmod", "755", "{}", "+"])
+            subprocess.run(["find", theme_dir, "-type", "f", "-exec", "chmod", "644", "{}", "+"])
+    else:
+        log_error(f"Lỗi khi cài đặt theme:\\n{result.stderr}")
 
 def cmd_update(args):
     log_info("Đang cập nhật MMe CLI Tool lên phiên bản mới nhất từ GitHub...")
@@ -723,9 +760,14 @@ def main():
     site_clone.set_defaults(func=cmd_site_clone)
     
     # site wpmme
-    site_wpmme = site_sub.add_parser("wpmme", help="Cài đặt và kích hoạt plugin WPMMe")
-    site_wpmme.add_argument("domain", help="Tên miền")
+    site_wpmme = site_sub.add_parser("wpmme", help="Cài và kích hoạt plugin WPMMe")
+    site_wpmme.add_argument("domain", help="Tên miền (VD: mme.vn)")
     site_wpmme.set_defaults(func=cmd_wpmme)
+
+    # site thememme
+    site_thememme = site_sub.add_parser("thememme", help="Cài và kích hoạt theme WPMMe")
+    site_thememme.add_argument("domain", help="Tên miền (VD: mme.vn)")
+    site_thememme.set_defaults(func=cmd_thememme)
     
     # Phân tích lệnh
     try:
