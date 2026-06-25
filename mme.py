@@ -483,7 +483,7 @@ def cmd_wpmme(args):
         return
         
     htdocs_dir = f"{site_dir}/htdocs"
-    if not os.path.exists(f"{htdocs_dir}/wp-config.php"):
+    if not os.path.exists(f"{htdocs_dir}/wp-config.php") and not os.path.exists(f"{site_dir}/wp-config.php"):
         log_error(f"Site {domain} không phải là WordPress (không tìm thấy wp-config.php).")
         return
 
