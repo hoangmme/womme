@@ -194,6 +194,23 @@ def cmd_deploy_add(args):
             build = build_input
         print("-" * 50)
 
+    import re
+    # Chuẩn hóa Repo URL: Chuyển https:// thành git@ để dùng được với Deploy Key
+    if repo.startswith("https://github.com/"):
+        repo = repo.replace("https://github.com/", "git@github.com:")
+    elif repo.startswith("https://gitlab.com/"):
+        repo = repo.replace("https://gitlab.com/", "git@gitlab.com:")
+        
+    if repo.startswith("git@") and not repo.endswith(".git"):
+        repo += ".git"
+        
+    # Chuẩn hóa Path: Bỏ qua thư mục htdocs nếu user lỡ nhập
+    if path:
+        path = path.strip("/")
+        if path.startswith("htdocs/"):
+            path = path[7:]
+        path = path.strip("/")
+
     config = load_config()
     config[args.domain] = {
         "repo": repo,
