@@ -500,6 +500,14 @@ def cmd_wpmme(args):
     result = subprocess.run(cmd, capture_output=True, text=True)
     if result.returncode == 0:
         log_info(f"Đã cài đặt và kích hoạt thành công plugin wpmme cho {domain}.")
+        
+        # Tự động phân quyền
+        plugin_dir = f"{htdocs_dir}/wp-content/plugins/wpmme"
+        if os.path.exists(plugin_dir):
+            log_info("Đang tự động phân quyền (mme role) cho thư mục plugin...")
+            subprocess.run(["chown", "-R", "www-data:www-data", plugin_dir])
+            subprocess.run(["find", plugin_dir, "-type", "d", "-exec", "chmod", "755", "{}", "+"])
+            subprocess.run(["find", plugin_dir, "-type", "f", "-exec", "chmod", "644", "{}", "+"])
     else:
         log_error(f"Lỗi khi cài đặt plugin:\\n{result.stderr}")
 
