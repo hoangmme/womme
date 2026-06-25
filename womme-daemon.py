@@ -73,13 +73,12 @@ def process_deploy(domain, config):
             symlink_target = f"{base_dir}/htdocs"
         else:
             # Theme / Plugin deploy
-            base_dir = f"/var/www/{domain}/htdocs/{os.path.dirname(target_path)}"
             target_name = os.path.basename(target_path)
             if not target_name:
                 log_message(domain, "LỖI: Đường dẫn path không hợp lệ.")
                 return False
-            releases_dir = f"{base_dir}/{target_name}-releases"
-            symlink_target = f"{base_dir}/{target_name}"
+            releases_dir = f"/var/www/{domain}/mme-releases/{target_name}"
+            symlink_target = f"/var/www/{domain}/htdocs/{target_path}"
 
         os.makedirs(releases_dir, exist_ok=True)
         timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
@@ -242,10 +241,9 @@ def process_rollback(domain, config):
         releases_dir = f"{base_dir}/releases"
         symlink_target = f"{base_dir}/htdocs"
     else:
-        base_dir = f"/var/www/{domain}/htdocs/{os.path.dirname(target_path)}"
         target_name = os.path.basename(target_path)
-        releases_dir = f"{base_dir}/{target_name}-releases"
-        symlink_target = f"{base_dir}/{target_name}"
+        releases_dir = f"/var/www/{domain}/mme-releases/{target_name}"
+        symlink_target = f"/var/www/{domain}/htdocs/{target_path}"
 
     if not os.path.exists(releases_dir):
         log_message(domain, "Không tìm thấy thư mục releases.")
