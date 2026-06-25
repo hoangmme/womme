@@ -430,18 +430,23 @@ def cmd_site_clone(args):
         log_error(f"Site gốc {source} không tồn tại trong /var/www/")
         return
 
-    create_cmd = ["wo", "site", "create", dest, "--wp"]
-    if le:
-        create_cmd.append("--le")
-    if force:
-        create_cmd.append("--force")
-
-    log_info(f"Đang tạo site mới {dest} bằng WordOps...")
-    result = subprocess.run(create_cmd)
+    if os.path.exists(f"/var/www/{dest}"):
+        if force:
+            log_info(f"Site {dest} đã tồn tại, tiếp tục do có cờ --force...")
+        else:
+            log_error(f"Site mới {dest} đã tồn tại. Thêm --force để ghi đè.")
+            return
+    else:
+        create_cmd = ["wo", "site", "create", dest, "--wp"]
+        if le: create_cmd.append("--le")
+        if force: create_cmd.append("--force")
     
-    if result.returncode != 0 or not os.path.exists(f"/var/www/{dest}/htdocs"):
-        log_error(f"Quá trình tạo site mới {dest} thất bại.")
-        return
+        log_info(f"Đang tạo site mới {dest} bằng WordOps...")
+        subprocess.run(create_cmd)
+        
+        if not os.path.exists(f"/var/www/{dest}/htdocs"):
+            log_error(f"Quá trình tạo site mới {dest} thất bại.")
+            return
 
     log_info("Đang sao chép tệp tin từ site gốc sang site mới...")
     
@@ -507,14 +512,21 @@ def cmd_site_rename(args):
 
     # 2. Tạo site mới
     log_info(f"Đang tạo site mới {new_domain} (0 bytes dung lượng data)...")
-    create_cmd = ["wo", "site", "create", new_domain, "--wp"]
-    if args.le: create_cmd.append("--le")
-    if args.force: create_cmd.append("--force")
-    
-    result = subprocess.run(create_cmd)
-    if result.returncode != 0 or not os.path.exists(f"/var/www/{new_domain}"):
-        log_error(f"Quá trình tạo site mới {new_domain} thất bại.")
-        return
+    if os.path.exists(f"/var/www/{new_domain}"):
+        if args.force:
+            log_info(f"Site {new_domain} đã tồn tại, tiếp tục do có cờ --force...")
+        else:
+            log_error(f"Site mới {new_domain} đã tồn tại. Thêm --force để ghi đè.")
+            return
+    else:
+        create_cmd = ["wo", "site", "create", new_domain, "--wp"]
+        if args.le: create_cmd.append("--le")
+        if args.force: create_cmd.append("--force")
+        
+        subprocess.run(create_cmd)
+        if not os.path.exists(f"/var/www/{new_domain}/htdocs"):
+            log_error(f"Quá trình tạo site mới {new_domain} thất bại.")
+            return
 
     # 3. Đọc DB mới
     new_wp_config = f"/var/www/{new_domain}/wp-config.php"
