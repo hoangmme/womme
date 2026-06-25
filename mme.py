@@ -478,6 +478,90 @@ def cmd_site_clone(args):
 
 import re
 
+def cmd_site_rename(args):
+    old_domain = args.old
+    new_domain = args.new
+    
+    if old_domain == new_domain:
+        log_error("Tên miền mới phải khác tên miền cũ!")
+        return
+
+    site_dir = f"/var/www/{old_domain}"
+    if not os.path.exists(site_dir):
+        log_error(f"Site gốc {old_domain} không tồn tại trong /var/www/")
+        return
+
+    # 1. Đọc DB cũ
+    old_wp_config = f"{site_dir}/wp-config.php"
+    if not os.path.exists(old_wp_config):
+        log_error(f"Không tìm thấy {old_wp_config}")
+        return
+        
+    with open(old_wp_config, "r") as f:
+        content = f.read()
+    match = re.search(r"define\(\s*'DB_NAME',\s*'([^']+)'\s*\);", content)
+    if not match:
+        log_error("Không tìm thấy DB_NAME trong wp-config.php cũ.")
+        return
+    old_db = match.group(1)
+
+    # 2. Tạo site mới
+    log_info(f"Đang tạo site mới {new_domain} (0 bytes dung lượng data)...")
+    create_cmd = ["wo", "site", "create", new_domain, "--wp"]
+    if args.le: create_cmd.append("--le")
+    if args.force: create_cmd.append("--force")
+    
+    result = subprocess.run(create_cmd)
+    if result.returncode != 0 or not os.path.exists(f"/var/www/{new_domain}"):
+        log_error(f"Quá trình tạo site mới {new_domain} thất bại.")
+        return
+
+    # 3. Đọc DB mới
+    new_wp_config = f"/var/www/{new_domain}/wp-config.php"
+    with open(new_wp_config, "r") as f:
+        content = f.read()
+    new_db = re.search(r"define\(\s*'DB_NAME',\s*'([^']+)'\s*\);", content).group(1)
+
+    # 4. Di chuyển dữ liệu DB cực nhanh (0 bytes)
+    log_info("Đang chuyển đổi cơ sở dữ liệu siêu tốc...")
+    mysql_cmd = ["mysql", "-e", f"SHOW TABLES IN `{old_db}`;", "-s", "--skip-column-names"]
+    res = subprocess.run(mysql_cmd, capture_output=True, text=True)
+    tables = [t.strip() for t in res.stdout.strip().split("\\n") if t.strip()]
+    
+    if tables:
+        subprocess.run(["wp", "db", "reset", "--yes", "--allow-root", f"--path=/var/www/{new_domain}/htdocs"])
+        rename_queries = [f"`{old_db}`.`{t}` TO `{new_db}`.`{t}`" for t in tables]
+        rename_sql = "RENAME TABLE " + ", ".join(rename_queries) + ";"
+        subprocess.run(["mysql", "-e", rename_sql])
+
+    # 5. Di chuyển Files (0 bytes disk)
+    log_info("Đang di chuyển tệp tin (Instant, 0 bytes disk)...")
+    subprocess.run(["rm", "-rf", f"/var/www/{new_domain}/htdocs"])
+    subprocess.run(["mv", f"/var/www/{old_domain}/htdocs", f"/var/www/{new_domain}/htdocs"])
+    
+    # Kéo theo releases nếu có
+    if os.path.exists(f"/var/www/{old_domain}/mme-releases"):
+        subprocess.run(["mv", f"/var/www/{old_domain}/mme-releases", f"/var/www/{new_domain}/mme-releases"])
+
+    # 6. Search Replace DB
+    log_info("Đang cập nhật tên miền mới trong Database...")
+    subprocess.run(f"wp search-replace '//{old_domain}' '//{new_domain}' --all-tables --path=/var/www/{new_domain}/htdocs --allow-root", shell=True)
+    subprocess.run(f"wp search-replace '{old_domain}' '{new_domain}' --all-tables --path=/var/www/{new_domain}/htdocs --allow-root", shell=True)
+
+    # 7. Xóa site cũ khỏi WordOps (File và DB đã rỗng nên an toàn)
+    log_info("Đang dọn dẹp site cũ...")
+    subprocess.run(["wo", "site", "delete", old_domain, "--no-prompt"])
+
+    # Cập nhật config deploy mme nếu có
+    config = load_config()
+    if old_domain in config:
+        config[new_domain] = config[old_domain]
+        del config[old_domain]
+        save_config(config)
+
+    log_info(f"✅ Đã đổi tên miền từ {old_domain} sang {new_domain} thành công (Dung lượng không đổi)!")
+
+
 def toggle_wp_config_constant(domain, constant_name, value):
     config_path = f"/var/www/{domain}/wp-config.php"
     if not os.path.exists(config_path):
@@ -597,6 +681,7 @@ CUSTOM_HELP = """
  mme site lockoff <domain>    (Tắt khóa bảo mật site)
  mme role                     (Fix quyền 644/755/www-data)
  mme site clone <old> <new>   (Nhân bản website)
+ mme site rename <old> <new>  (Đổi tên miền website)
  mme db                       (Sửa cấu hình MySQL/MariaDB)
  mme site wpmme <domain>      (Cài & kích hoạt plugin WPMMe)
  mme site thememme <domain>   (Cài & kích hoạt theme WPMMe)
@@ -778,9 +863,17 @@ def main():
     site_clone = site_sub.add_parser("clone", help="Nhân bản website")
     site_clone.add_argument("old_domain", help="Tên miền gốc")
     site_clone.add_argument("new_domain", help="Tên miền mới")
-    site_clone.add_argument("--le", action="store_true", help="Cài SSL Let's Encrypt")
-    site_clone.add_argument("--force", action="store_true", help="Ghi đè nếu site đã tồn tại")
+    site_clone.add_argument("--le", action="store_true", help="Cài đặt luôn SSL cho site mới")
+    site_clone.add_argument("--force", action="store_true", help="Ép buộc chạy lệnh bỏ qua cảnh báo")
     site_clone.set_defaults(func=cmd_site_clone)
+    
+    # site rename
+    site_rename = site_sub.add_parser("rename", help="Đổi tên miền website (0 bytes disk)")
+    site_rename.add_argument("old", help="Tên miền cũ (VD: old.com)")
+    site_rename.add_argument("new", help="Tên miền mới (VD: new.com)")
+    site_rename.add_argument("--le", action="store_true", help="Cài đặt luôn SSL cho site mới")
+    site_rename.add_argument("--force", action="store_true", help="Ép buộc chạy lệnh bỏ qua cảnh báo")
+    site_rename.set_defaults(func=cmd_site_rename)
     
     # site wpmme
     site_wpmme = site_sub.add_parser("wpmme", help="Cài và kích hoạt plugin WPMMe")

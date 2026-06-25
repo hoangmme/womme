@@ -123,7 +123,13 @@ mme site thememme mme.vn
 ```
 Tương tự như plugin, lệnh này sẽ cài tự động Theme từ Github (hoangmme/thememme) vào site và phân quyền.
 
-### 6. Cập nhật MMe CLI Tool (`update`)
+### 6. Đổi tên miền không tốn dung lượng (`rename`)
+Chuyển website từ domain cũ sang domain mới với công nghệ "Instant Move" (0 bytes dung lượng data, không cần copy file hay export DB):
+```bash
+mme site rename old.com new.com
+```
+
+### 7. Cập nhật MMe CLI Tool (`update`)
 Cập nhật công cụ `mme` trên server của bạn lên phiên bản mới nhất từ Github:
 ```bash
 mme update
