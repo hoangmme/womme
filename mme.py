@@ -468,10 +468,50 @@ CUSTOM_HELP = """
  mme role                     (Fix quyền 644/755/www-data)
  mme site clone <old> <new>   (Nhân bản website)
  mme db                       (Sửa cấu hình MySQL/MariaDB)
+ mme site wpmme <domain>      (Cài & kích hoạt plugin WPMMe)
+ mme update                   (Cập nhật MMe CLI lên bản mới nhất)
  
  Gõ `mme <lệnh> --help` để xem chi tiết cách dùng của một nhóm lệnh.
 ==================================================
 """
+
+def cmd_wpmme(args):
+    domain = args.domain
+    site_dir = f"/var/www/{domain}"
+    if not os.path.exists(site_dir):
+        log_error(f"Site {domain} không tồn tại trong /var/www/")
+        return
+        
+    htdocs_dir = f"{site_dir}/htdocs"
+    if not os.path.exists(f"{htdocs_dir}/wp-config.php"):
+        log_error(f"Site {domain} không phải là WordPress (không tìm thấy wp-config.php).")
+        return
+
+    log_info(f"Đang cài đặt và kích hoạt plugin WPMMe cho {domain}...")
+    
+    plugin_url = "https://github.com/hoangmme/wpmme/archive/refs/heads/main.zip"
+    cmd = [
+        "wp", "plugin", "install", plugin_url,
+        "--activate",
+        f"--path={htdocs_dir}",
+        "--allow-root"
+    ]
+    
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    if result.returncode == 0:
+        log_info(f"Đã cài đặt và kích hoạt thành công plugin wpmme cho {domain}.")
+    else:
+        log_error(f"Lỗi khi cài đặt plugin:\\n{result.stderr}")
+
+def cmd_update(args):
+    log_info("Đang cập nhật MMe CLI Tool lên phiên bản mới nhất từ GitHub...")
+    cmd = "curl -sL https://raw.githubusercontent.com/hoangmme/womme/main/install.sh | bash"
+    result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+    if result.returncode == 0:
+        log_info("Đã cập nhật thành công!")
+        print(result.stdout)
+    else:
+        log_error(f"Lỗi khi cập nhật:\\n{result.stderr}")
 
 def cmd_db(args):
     log_info("Đang mở file cấu hình MySQL (/etc/mysql/conf.d/my.cnf)...")
@@ -489,6 +529,10 @@ def main():
     # --- db ---
     db_parser = subparsers.add_parser("db", help="Mở trình soạn thảo sửa cấu hình MySQL")
     db_parser.set_defaults(func=cmd_db)
+    
+    # --- update ---
+    update_parser = subparsers.add_parser("update", help="Cập nhật MMe CLI Tool lên phiên bản mới nhất")
+    update_parser.set_defaults(func=cmd_update)
     
     # --- role ---
     role_parser = subparsers.add_parser("role", help="Tự động cấp quyền 644/755/www-data cho thư mục hiện tại")
@@ -557,6 +601,11 @@ def main():
     site_clone.add_argument("--le", action="store_true", help="Cài SSL Let's Encrypt")
     site_clone.add_argument("--force", action="store_true", help="Ghi đè nếu site đã tồn tại")
     site_clone.set_defaults(func=cmd_site_clone)
+    
+    # site wpmme
+    site_wpmme = site_sub.add_parser("wpmme", help="Cài đặt và kích hoạt plugin WPMMe")
+    site_wpmme.add_argument("domain", help="Tên miền")
+    site_wpmme.set_defaults(func=cmd_wpmme)
     
     # Phân tích lệnh
     try:
