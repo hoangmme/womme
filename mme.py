@@ -244,7 +244,18 @@ def cmd_deploy_add(args):
 
     log_info(f"Đã lưu cấu hình Deploy cho domain: {args.domain}")
     ensure_ssh_key()
-    log_info("Vui lòng lên GitHub/GitLab thêm Public Key ở trên vào phần Deploy Keys của kho mã nguồn (Nhớ cấp quyền read-only).")
+    
+    print("\\n" + "="*64)
+    print(" HƯỚNG DẪN CÀI ĐẶT GITHUB WEBHOOK & DEPLOY KEY")
+    print("="*64)
+    print("1. Copy toàn bộ Public Key (ở trên) và thêm vào phần:")
+    print("   [Tên Repo của bạn] > Settings > Deploy Keys > Add deploy key")
+    print("2. Thêm Webhook URL sau vào phần:")
+    print("   [Tên Repo của bạn] > Settings > Webhooks > Add webhook")
+    print(f"   - Payload URL: https://{args.domain}/wp-json/wpmme/v1/deploy")
+    print("   - Content type: application/json")
+    print("="*64 + "\\n")
+    
     log_info(f"Để chạy thử deploy lần đầu thủ công, hãy gõ lệnh: mme deploy run {args.domain}")
 
 def cmd_deploy_edit(args):
@@ -289,6 +300,18 @@ def cmd_deploy_edit(args):
     }
     save_config(config)
     log_info(f"Đã cập nhật cấu hình Deploy cho domain: {args.domain}")
+    ensure_ssh_key()
+    
+    print("\\n" + "="*64)
+    print(" HƯỚNG DẪN CÀI ĐẶT GITHUB WEBHOOK & DEPLOY KEY")
+    print("="*64)
+    print("1. Copy toàn bộ Public Key (ở trên) và thêm vào phần:")
+    print("   [Tên Repo của bạn] > Settings > Deploy Keys > Add deploy key")
+    print("2. Thêm Webhook URL sau vào phần:")
+    print("   [Tên Repo của bạn] > Settings > Webhooks > Add webhook")
+    print(f"   - Payload URL: https://{args.domain}/wp-json/wpmme/v1/deploy")
+    print("   - Content type: application/json")
+    print("="*64 + "\\n")
 
 def cmd_deploy_list(args):
     config = load_config()
