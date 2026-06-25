@@ -24,6 +24,8 @@ def log_message(domain, message):
         f.write(line)
 
 def run_cmd(cmd, cwd=None):
+    if cwd is None:
+        cwd = '/'
     try:
         result = subprocess.run(cmd, shell=True, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
         return result.returncode == 0, result.stdout
