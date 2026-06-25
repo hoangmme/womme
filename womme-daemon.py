@@ -84,9 +84,14 @@ def process_deploy(domain, config):
         new_release_dir = f"{releases_dir}/{timestamp}"
 
         # 1. Clone Code
-        log_message(domain, f"Đang clone từ {repo} (branch: {branch}) vào {new_release_dir}...")
         os.environ["GIT_SSH_COMMAND"] = "ssh -o StrictHostKeyChecking=no -i /root/.ssh/id_ed25519"
-        clone_cmd = f"git clone --depth 1 --branch {branch} {repo} {new_release_dir}"
+        if branch:
+            log_message(domain, f"Đang clone từ {repo} (branch: {branch}) vào {new_release_dir}...")
+            clone_cmd = f"git clone --depth 1 --branch {branch} {repo} {new_release_dir}"
+        else:
+            log_message(domain, f"Đang clone từ {repo} (default branch) vào {new_release_dir}...")
+            clone_cmd = f"git clone --depth 1 {repo} {new_release_dir}"
+            
         success, out = run_cmd(clone_cmd)
         if not success:
             log_message(domain, f"LỖI Clone: {out}")

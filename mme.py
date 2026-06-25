@@ -181,7 +181,7 @@ def cmd_deploy_add(args):
         while not repo:
             repo = input("   -> Git Repo URL bắt buộc phải nhập: ").strip()
             
-        branch_input = input(f"2. Nhập Branch (Nhấn Enter để dùng mặc định là '{branch}'): ").strip()
+        branch_input = input(f"2. Nhập Branch (Nhấn Enter để tự động lấy branch mặc định của repo): ").strip()
         if branch_input:
             branch = branch_input
             
@@ -595,7 +595,7 @@ def main():
     deploy_add = deploy_sub.add_parser("add", help="Thêm cấu hình deploy cho domain")
     deploy_add.add_argument("domain", help="Tên miền (VD: mme.vn)")
     deploy_add.add_argument("--repo", required=False, default=None, help="Git repo URL")
-    deploy_add.add_argument("--branch", default="main", help="Branch (mặc định: main)")
+    deploy_add.add_argument("--branch", default="", help="Branch (Mặc định: Tự động lấy branch chính của repo)")
     deploy_add.add_argument("--path", default="", help="Đường dẫn lưu code (mặc định: root htdocs)")
     deploy_add.add_argument("--build", default="", help="Lệnh build (VD: npm run build)")
     deploy_add.set_defaults(func=cmd_deploy_add)
