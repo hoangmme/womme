@@ -25,14 +25,20 @@ curl -sL https://raw.githubusercontent.com/hoangmme/womme/main/install.sh | sudo
 ```
 *(Script sẽ tự kéo source code, cài plugin, dựng Systemd Daemon và báo hoàn tất)*
 
-## 💡 Thiết lập Nginx Webhook Proxy
+## 💡 Thiết lập Github Webhook
 
-Để nhận Webhook từ Github an toàn qua HTTPS, WordOps hỗ trợ tạo reverse proxy trỏ thẳng vào port 8989 của Daemon:
+Thay vì phải tạo riêng một Subdomain Proxy phức tạp, bạn chỉ cần cài plugin WPMMe của chúng tôi lên website, nó sẽ đóng vai trò như một điểm cầu nối (Bridge) an toàn:
 
+1. Cài đặt plugin WPMMe vào trang web:
 ```bash
-wo site create deploy.tenmiencuaban.com --proxy=127.0.0.1:8989 --le
+mme site wpmme domain.com
 ```
-Khi khai báo trên Github, bạn sử dụng Payload URL dạng: `https://deploy.tenmiencuaban.com/hooks/domain.com`
+
+2. Vào Github > Settings > Webhooks > Add webhook, nhập:
+- **Payload URL**: `https://domain.com/wp-json/wpmme/v1/deploy`
+- **Content type**: `application/json`
+
+*(Plugin sẽ nhận tín hiệu mã hóa từ Github và âm thầm kích hoạt tiến trình Deploy của Server mà không gây nặng web).*
 
 ---
 
