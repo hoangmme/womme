@@ -185,9 +185,25 @@ def cmd_deploy_add(args):
         if branch_input:
             branch = branch_input
             
-        path_input = input(f"3. Nhập đường dẫn con lưu code (Nhấn Enter để lưu thẳng vào root htdocs): ").strip()
-        if path_input:
+        print("3. Bạn muốn deploy loại dự án nào?")
+        print("   [1] Toàn bộ website (Thả code thẳng vào htdocs gốc)")
+        print("   [2] Theme WordPress")
+        print("   [3] Plugin WordPress")
+        print("   [4] Tùy chỉnh đường dẫn riêng (Custom path)")
+        type_choice = input("   -> Chọn (1/2/3/4) [Nhấn Enter mặc định là 1]: ").strip()
+        
+        repo_name = repo.split("/")[-1].replace(".git", "") if repo else ""
+        if type_choice == "2":
+            path = f"wp-content/themes/{repo_name}"
+            print(f"   => Đã tự cấu hình đường dẫn Theme: {path}")
+        elif type_choice == "3":
+            path = f"wp-content/plugins/{repo_name}"
+            print(f"   => Đã tự cấu hình đường dẫn Plugin: {path}")
+        elif type_choice == "4":
+            path_input = input(f"   -> Nhập đường dẫn con lưu code (Ví dụ: app/frontend): ").strip()
             path = path_input
+        else:
+            path = ""
             
         build_input = input(f"4. Nhập lệnh build - ví dụ: npm install (Nhấn Enter nếu không cần): ").strip()
         if build_input:
@@ -230,6 +246,49 @@ def cmd_deploy_add(args):
     ensure_ssh_key()
     log_info("Vui lòng lên GitHub/GitLab thêm Public Key ở trên vào phần Deploy Keys của kho mã nguồn (Nhớ cấp quyền read-only).")
     log_info(f"Để chạy thử deploy lần đầu thủ công, hãy gõ lệnh: mme deploy run {args.domain}")
+
+def cmd_deploy_edit(args):
+    config = load_config()
+    if args.domain not in config:
+        log_error(f"Domain {args.domain} chưa có cấu hình deploy. Vui lòng dùng lệnh 'mme deploy add' trước.")
+        return
+        
+    old_conf = config[args.domain]
+    print(f"\\n--- Sửa cấu hình Git Auto Deploy cho domain: {args.domain} ---")
+    print("Nhấn Enter nếu bạn muốn giữ nguyên giá trị cũ.")
+    
+    repo = input(f"1. Git Repo URL [{old_conf.get('repo')}]: ").strip()
+    if not repo: repo = old_conf.get('repo', '')
+    
+    branch = input(f"2. Branch [{old_conf.get('branch')}]: ").strip()
+    if not branch: branch = old_conf.get('branch', '')
+    
+    path = input(f"3. Path [{old_conf.get('path')}]: ").strip()
+    if not path: path = old_conf.get('path', '')
+    
+    build = input(f"4. Build Command [{old_conf.get('build')}]: ").strip()
+    if not build and old_conf.get('build'):
+        # Để xóa build command cũ, có thể hướng dẫn nhập 'none'
+        build = old_conf.get('build', '')
+        
+    import re
+    if repo.startswith("https://github.com/"): repo = repo.replace("https://github.com/", "git@github.com:")
+    elif repo.startswith("https://gitlab.com/"): repo = repo.replace("https://gitlab.com/", "git@gitlab.com:")
+    if repo.startswith("git@") and not repo.endswith(".git"): repo += ".git"
+    
+    if path:
+        path = path.strip("/")
+        if path.startswith("htdocs/"): path = path[7:]
+        path = path.strip("/")
+        
+    config[args.domain] = {
+        "repo": repo,
+        "branch": branch,
+        "path": path,
+        "build": build
+    }
+    save_config(config)
+    log_info(f"Đã cập nhật cấu hình Deploy cho domain: {args.domain}")
 
 def cmd_deploy_list(args):
     config = load_config()
@@ -504,6 +563,7 @@ CUSTOM_HELP = """
 
  Các lệnh có thể dùng:
  mme deploy add <domain>      (Thêm cấu hình Auto Deploy)
+ mme deploy edit <domain>     (Sửa cấu hình Auto Deploy)
  mme deploy list              (Xem danh sách Auto Deploy)
  mme deploy run <domain>      (Chạy Deploy thủ công)
  mme deploy rollback <domain> (Khôi phục bản cũ)
@@ -605,6 +665,11 @@ def main():
     deploy_add.add_argument("--path", default="", help="Đường dẫn lưu code (mặc định: root htdocs)")
     deploy_add.add_argument("--build", default="", help="Lệnh build (VD: npm run build)")
     deploy_add.set_defaults(func=cmd_deploy_add)
+    
+    # deploy edit
+    deploy_edit = deploy_sub.add_parser("edit", help="Sửa cấu hình deploy hiện tại")
+    deploy_edit.add_argument("domain", help="Tên miền (VD: mme.vn)")
+    deploy_edit.set_defaults(func=cmd_deploy_edit)
     
     # deploy list
     deploy_list = deploy_sub.add_parser("list", help="Danh sách cấu hình deploy")

@@ -68,7 +68,7 @@ _mme_completion() {
     }
 
     local commands="deploy site role db update"
-    local deploy_commands="add list run rollback logs"
+    local deploy_commands="add edit list run rollback logs"
     local site_commands="pause start lockon lockoff clone wpmme"
     
     # Lấy danh sách tên miền từ /var/www (bỏ qua các thư mục hệ thống của WordOps)
@@ -99,7 +99,7 @@ _mme_completion() {
         case "$cmd" in
             deploy)
                 case "$subcmd" in
-                    add|run|rollback|logs)
+                    add|edit|run|rollback|logs)
                         COMPREPLY=( $(compgen -W "$domains" -- "$cur") )
                         ;;
                 esac

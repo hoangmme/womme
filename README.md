@@ -56,17 +56,23 @@ Bấm nút kéo code, build và deploy thủ công không cần đợi Webhook (
 mme deploy run mme.vn
 ```
 
-### 3. Xem danh sách (`list`)
+### 3. Sửa cấu hình Deploy (`edit`)
+Nếu bạn nhập sai hoặc muốn đổi repo/branch, sử dụng lệnh:
+```bash
+mme deploy edit mme.vn
+```
+
+### 4. Xem danh sách (`list`)
 ```bash
 mme deploy list
 ```
 
-### 4. Xem nhật ký Deploy (`logs`)
+### 5. Xem nhật ký Deploy (`logs`)
 ```bash
 mme deploy logs mme.vn
 ```
 
-### 5. Rollback khẩn cấp (`rollback`)
+### 6. Rollback khẩn cấp (`rollback`)
 Trong trường hợp bản code mới bị lỗi sập site, gõ lệnh này để trỏ symlink lùi về bản release liền kề trước đó:
 ```bash
 mme deploy rollback mme.vn
