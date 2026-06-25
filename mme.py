@@ -170,12 +170,36 @@ def cmd_role(args):
     log_info("Hoàn tất cấp quyền!")
 
 def cmd_deploy_add(args):
+    repo = args.repo
+    branch = args.branch
+    path = args.path
+    build = args.build
+
+    if not repo:
+        print(f"\\n--- Cấu hình Git Auto Deploy cho domain: {args.domain} ---")
+        repo = input("1. Nhập Git Repo URL (vd: git@github.com:user/repo.git): ").strip()
+        while not repo:
+            repo = input("   -> Git Repo URL bắt buộc phải nhập: ").strip()
+            
+        branch_input = input(f"2. Nhập Branch (Nhấn Enter để dùng mặc định là '{branch}'): ").strip()
+        if branch_input:
+            branch = branch_input
+            
+        path_input = input(f"3. Nhập đường dẫn con lưu code (Nhấn Enter để lưu thẳng vào root htdocs): ").strip()
+        if path_input:
+            path = path_input
+            
+        build_input = input(f"4. Nhập lệnh build - ví dụ: npm install (Nhấn Enter nếu không cần): ").strip()
+        if build_input:
+            build = build_input
+        print("-" * 50)
+
     config = load_config()
     config[args.domain] = {
-        "repo": args.repo,
-        "branch": args.branch,
-        "path": args.path,
-        "build": args.build
+        "repo": repo,
+        "branch": branch,
+        "path": path,
+        "build": build
     }
     save_config(config)
 
@@ -553,7 +577,7 @@ def main():
     # deploy add
     deploy_add = deploy_sub.add_parser("add", help="Thêm cấu hình deploy cho domain")
     deploy_add.add_argument("domain", help="Tên miền (VD: mme.vn)")
-    deploy_add.add_argument("--repo", required=True, help="Git repo URL")
+    deploy_add.add_argument("--repo", required=False, default=None, help="Git repo URL")
     deploy_add.add_argument("--branch", default="main", help="Branch (mặc định: main)")
     deploy_add.add_argument("--path", default="", help="Đường dẫn lưu code (mặc định: root htdocs)")
     deploy_add.add_argument("--build", default="", help="Lệnh build (VD: npm run build)")
