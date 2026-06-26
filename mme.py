@@ -319,38 +319,55 @@ def cmd_deploy_list(args):
         log_info("Chưa có cấu hình deploy nào.")
         return
         
-    log_info("Đang kiểm tra kết nối SSH và Webhook (Vui lòng đợi vài giây)...")
+    log_info("Đang kiểm tra kết nối Webhook & SSH (Vui lòng đợi vài giây)...")
     
-    print("\n" + "="*60)
-    print(" DANH SÁCH CẤU HÌNH GIT AUTO DEPLOY")
-    print("="*60)
+    # 1. Kiểm tra kết nối SSH chung (1 lần duy nhất)
+    ssh_status = "\033[91m❌ LỖI (Chưa thêm Public Key vào Github/Gitlab)\033[0m"
+    os.environ["GIT_SSH_COMMAND"] = "ssh -o StrictHostKeyChecking=no -i /root/.ssh/id_ed25519 -o ConnectTimeout=5 -o BatchMode=yes"
+    
+    # Check nhanh với github
+    res = subprocess.run(["ssh", "-T", "-o", "StrictHostKeyChecking=no", "-i", "/root/.ssh/id_ed25519", "-o", "ConnectTimeout=5", "-o", "BatchMode=yes", "git@github.com"], capture_output=True, text=True)
+    if "successfully authenticated" in res.stdout or "successfully authenticated" in res.stderr:
+        ssh_status = "\033[92m✅ OK\033[0m"
+    else:
+        # Dự phòng check repo đầu tiên nếu xài gitlab
+        for domain, conf in config.items():
+            repo = conf.get('repo', '')
+            if repo:
+                res2 = subprocess.run(["git", "ls-remote", repo], capture_output=True)
+                if res2.returncode == 0:
+                    ssh_status = "\033[92m✅ OK\033[0m"
+                break
+                
+    print("\n\033[96m" + "="*60 + "\033[0m")
+    print("\033[1;92m TRẠNG THÁI HỆ THỐNG\033[0m")
+    print("\033[96m" + "="*60 + "\033[0m")
+    print(f" Kết nối Github/Gitlab (SSH): {ssh_status}")
+    print("\033[96m" + "="*60 + "\033[0m")
+    
+    print("\n\033[1;93m DANH SÁCH CẤU HÌNH GIT AUTO DEPLOY\033[0m")
+    print("\033[96m" + "="*60 + "\033[0m")
     
     for domain, conf in config.items():
         repo = conf.get('repo', '')
         
-        # 1. Kiểm tra kết nối SSH tới Git
-        ssh_status = "\033[91m❌ LỖI (Chưa thêm Public Key vào Github/Gitlab)\033[0m"
-        if repo:
-            os.environ["GIT_SSH_COMMAND"] = "ssh -o StrictHostKeyChecking=no -i /root/.ssh/id_ed25519 -o ConnectTimeout=5 -o BatchMode=yes"
-            res = subprocess.run(["git", "ls-remote", repo], capture_output=True)
-            if res.returncode == 0:
-                ssh_status = "\033[92m✅ OK\033[0m"
-                
         # 2. Kiểm tra trạng thái Webhook của plugin WPMMe
-        webhook_status = "\033[91m❌ LỖI (WPMMe chưa được cài đặt hoặc kích hoạt)\033[0m"
+        webhook_status = "\033[91m❌ LỖI (Chưa cài/Kích hoạt WPMMe)\033[0m"
         curl_cmd = ["curl", "-L", "-X", "POST", "-s", "-o", "/dev/null", "-w", "%{http_code}", f"https://{domain}/wp-json/wpmme/v1/deploy"]
         res = subprocess.run(curl_cmd, capture_output=True, text=True)
         if res.stdout.strip() in ["200", "201"]:
             webhook_status = "\033[92m✅ OK\033[0m"
             
-        print(f"- Domain:  \033[1m{domain}\033[0m")
+        print(f"- Domain:  \033[1;96m{domain}\033[0m")
         print(f"  Repo:    {repo}")
-        print(f"  Branch:  {conf.get('branch')}")
-        print(f"  Path:    {conf.get('path')}")
-        print(f"  Build:   {conf.get('build')}")
-        print(f"  SSH:     {ssh_status}")
+        if conf.get('branch'):
+            print(f"  Branch:  {conf.get('branch')}")
+        if conf.get('path'):
+            print(f"  Path:    {conf.get('path')}")
+        if conf.get('build'):
+            print(f"  Build:   {conf.get('build')}")
         print(f"  Webhook: {webhook_status}")
-        print("-" * 60)
+        print("\033[90m" + "-" * 60 + "\033[0m")
 
 def run_daemon(action, domain):
     daemon_path = "/usr/local/bin/womme-daemon.py"
