@@ -99,7 +99,7 @@ _mme_completion() {
         case "$cmd" in
             deploy)
                 case "$subcmd" in
-                    add|edit|run|rollback|logs)
+                    push|edit|pull|rollback|logs)
                         COMPREPLY=( $(compgen -W "$domains" -- "$cur") )
                         ;;
                 esac
@@ -122,6 +122,11 @@ _mme_completion() {
 }
 complete -F _mme_completion mme
 EOF
+
+# Đảm bảo file mme luôn được load trong bashrc
+if ! grep -q "source /etc/bash_completion.d/mme" ~/.bashrc; then
+    echo "source /etc/bash_completion.d/mme 2>/dev/null" >> ~/.bashrc
+fi
 
 # Nạp lại ngay lập tức cho session hiện tại nếu người dùng chạy thủ công,
 # nhưng nếu chạy qua curl | bash thì cần lưu ý.
