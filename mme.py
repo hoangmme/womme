@@ -723,10 +723,10 @@ CUSTOM_HELP = """
 \033[96m==================================================\033[0m
 
  \033[93mCác lệnh có thể dùng:\033[0m
- \033[96mmme deploy add <domain>\033[0m      (Thêm cấu hình Auto Deploy)
+ \033[96mmme deploy push <domain>\033[0m     (Thêm cấu hình Auto Deploy)
  \033[96mmme deploy edit <domain>\033[0m     (Sửa cấu hình Auto Deploy)
  \033[96mmme deploy list\033[0m              (Xem danh sách Auto Deploy)
- \033[96mmme deploy run <domain>\033[0m      (Chạy Deploy thủ công)
+ \033[96mmme deploy pull <domain>\033[0m     (Chạy Deploy thủ công)
  \033[96mmme deploy rollback <domain>\033[0m (Khôi phục bản cũ)
  \033[96mmme deploy logs <domain>\033[0m     (Xem nhật ký Deploy)
  \033[96mmme site pause <domain>\033[0m      (Bật chế độ bảo trì)
@@ -932,8 +932,8 @@ def main():
     deploy_parser = subparsers.add_parser("deploy", help="Quản lý Git Auto Deploy")
     deploy_sub = deploy_parser.add_subparsers(dest="deploy_cmd", required=True)
     
-    # deploy add
-    deploy_add = deploy_sub.add_parser("add", help="Thêm cấu hình deploy cho domain")
+    # deploy add / push
+    deploy_add = deploy_sub.add_parser("add", aliases=["push"], help="Thêm cấu hình deploy cho domain")
     deploy_add.add_argument("domain", help="Tên miền (VD: mme.vn)")
     deploy_add.add_argument("--repo", required=False, default=None, help="Git repo URL")
     deploy_add.add_argument("--branch", default="", help="Branch (Mặc định: Tự động lấy branch chính của repo)")
@@ -950,8 +950,8 @@ def main():
     deploy_list = deploy_sub.add_parser("list", help="Danh sách cấu hình deploy")
     deploy_list.set_defaults(func=cmd_deploy_list)
     
-    # deploy run
-    deploy_run = deploy_sub.add_parser("run", help="Chạy deploy thủ công")
+    # deploy run / pull
+    deploy_run = deploy_sub.add_parser("run", aliases=["pull"], help="Chạy deploy thủ công")
     deploy_run.add_argument("domain", help="Tên miền")
     deploy_run.set_defaults(func=cmd_deploy_run)
     

@@ -112,11 +112,11 @@ def process_deploy(domain, config):
 
         # 3. Setup Symlink
         log_message(domain, "Đang chuyển đổi Symlink (Zero-downtime)...")
-        # Nếu thư mục gốc đang là thư mục thật (không phải symlink), đổi tên nó để backup
+        # Nếu thư mục gốc đang là thư mục thật (không phải symlink), di chuyển nó sang thư mục backup an toàn
         if os.path.exists(symlink_target) and not os.path.islink(symlink_target):
-            backup_name = f"{symlink_target}_backup_{timestamp}"
+            backup_name = f"{releases_dir}/original_backup_{timestamp}"
             shutil.move(symlink_target, backup_name)
-            log_message(domain, f"Đã backup thư mục cũ sang {backup_name}")
+            log_message(domain, f"Đã chuyển thư mục cũ sang {backup_name}")
 
         # Tạo symlink mới
         run_cmd(f"ln -sfn {new_release_dir} {symlink_target}")

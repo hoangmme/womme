@@ -48,18 +48,16 @@ mme site wpmme domain.com
 Cấu hình một domain để tự động nhận code mỗi khi push lên Git. Có thể chọn đường dẫn là toàn bộ site (`/`) hoặc chỉ 1 thư mục theme/plugin.
 
 ```bash
-mme deploy add mme.vn \
-  --repo=git@github.com:hoangmme/mme-theme.git \
-  --branch=main \
-  --path=wp-content/themes/mme \
-  --build="npm ci && npm run build"
-```
-*Lưu ý: Lệnh này sẽ tự động sinh và in ra SSH Public Key để bạn dán vào Github Deploy Keys.*
-
-### 2. Chạy Deploy thủ công (`run`)
-Bấm nút kéo code, build và deploy thủ công không cần đợi Webhook (thường dùng để test lần đầu):
+Cấu hình một domain để tự động nhận code mỗi khi push lên Git.
 ```bash
-mme deploy run mme.vn
+mme deploy push domain.com
+```
+Lệnh này sẽ hỏi bạn URL của Git Repository, nhánh (branch), và đường dẫn cần triển khai.
+
+### 2. Kích hoạt triển khai (Deploy) thủ công
+Bạn có thể tự tay tải code mới nhất về server mà không cần đợi webhook bằng lệnh:
+```bash
+mme deploy pull domain.com
 ```
 
 ### 3. Sửa cấu hình Deploy (`edit`)
