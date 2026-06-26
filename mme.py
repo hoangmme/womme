@@ -825,8 +825,6 @@ def cmd_update(args):
     if result.returncode == 0:
         log_info("Đã cập nhật thành công!")
         print(result.stdout)
-        print("\n\033[1;93m MẸO NHỎ:\033[0m")
-        print("\033[93m Gõ lệnh \033[1mexec bash\033[0m\033[93m và nhấn Enter để máy chủ nhận diện lệnh mới ngay lập tức!\033[0m\n")
     else:
         log_error(f"Lỗi khi cập nhật:\\n{result.stderr}")
 
