@@ -701,32 +701,32 @@ def cmd_site_lockoff(args):
 # ==================== MAIN PARSER ====================
 
 CUSTOM_HELP = """
-==================================================
- WordOps MMe CLI Tool - Trợ lý vận hành siêu tốc
-==================================================
+\033[96m==================================================\033[0m
+\033[1;92m WordOps MMe CLI Tool - Trợ lý vận hành siêu tốc\033[0m
+\033[96m==================================================\033[0m
 
- Các lệnh có thể dùng:
- mme deploy add <domain>      (Thêm cấu hình Auto Deploy)
- mme deploy edit <domain>     (Sửa cấu hình Auto Deploy)
- mme deploy list              (Xem danh sách Auto Deploy)
- mme deploy run <domain>      (Chạy Deploy thủ công)
- mme deploy rollback <domain> (Khôi phục bản cũ)
- mme deploy logs <domain>     (Xem nhật ký Deploy)
- mme site pause <domain>      (Bật chế độ bảo trì)
- mme site start <domain>      (Tắt chế độ bảo trì)
- mme site lockon <domain>     (Bật khóa bảo mật site)
- mme site lockoff <domain>    (Tắt khóa bảo mật site)
- mme role                     (Fix quyền 644/755/www-data)
- mme copy <nguồn> <đích>      (Sao chép thư mục sang VPS khác)
- mme site clone <old> <new>   (Nhân bản website)
- mme site rename <old> <new>  (Đổi tên miền website)
- mme db                       (Sửa cấu hình MySQL/MariaDB)
- mme site wpmme <domain>      (Cài & kích hoạt plugin WPMMe)
- mme site thememme <domain>   (Cài & kích hoạt theme WPMMe)
- mme update                   (Cập nhật MMe CLI lên bản mới nhất)
+ \033[93mCác lệnh có thể dùng:\033[0m
+ \033[96mmme deploy add <domain>\033[0m      (Thêm cấu hình Auto Deploy)
+ \033[96mmme deploy edit <domain>\033[0m     (Sửa cấu hình Auto Deploy)
+ \033[96mmme deploy list\033[0m              (Xem danh sách Auto Deploy)
+ \033[96mmme deploy run <domain>\033[0m      (Chạy Deploy thủ công)
+ \033[96mmme deploy rollback <domain>\033[0m (Khôi phục bản cũ)
+ \033[96mmme deploy logs <domain>\033[0m     (Xem nhật ký Deploy)
+ \033[96mmme site pause <domain>\033[0m      (Bật chế độ bảo trì)
+ \033[96mmme site start <domain>\033[0m      (Tắt chế độ bảo trì)
+ \033[96mmme site lockon <domain>\033[0m     (Bật khóa bảo mật site)
+ \033[96mmme site lockoff <domain>\033[0m    (Tắt khóa bảo mật site)
+ \033[96mmme role\033[0m                     (Fix quyền 644/755/www-data)
+ \033[96mmme copy <nguồn> <đích>\033[0m      (Sao chép thư mục sang VPS khác)
+ \033[96mmme site clone <old> <new>\033[0m   (Nhân bản website)
+ \033[96mmme site rename <old> <new>\033[0m  (Đổi tên miền website)
+ \033[96mmme db\033[0m                       (Sửa cấu hình MySQL/MariaDB)
+ \033[96mmme site wpmme <domain>\033[0m      (Cài & kích hoạt plugin WPMMe)
+ \033[96mmme site thememme <domain>\033[0m   (Cài & kích hoạt theme WPMMe)
+ \033[96mmme update\033[0m                   (Cập nhật MMe CLI lên bản mới nhất)
  
- Gõ `mme <lệnh> --help` để xem chi tiết cách dùng của một nhóm lệnh.
-==================================================
+ \033[90mGõ `mme <lệnh> --help` để xem chi tiết cách dùng của một nhóm lệnh.\033[0m
+\033[96m==================================================\033[0m
 """
 
 def cmd_wpmme(args):
