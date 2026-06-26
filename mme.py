@@ -692,6 +692,7 @@ CUSTOM_HELP = """
  mme site lockon <domain>     (Bật khóa bảo mật site)
  mme site lockoff <domain>    (Tắt khóa bảo mật site)
  mme role                     (Fix quyền 644/755/www-data)
+ mme copy <nguồn> <đích>      (Sao chép thư mục sang VPS khác)
  mme site clone <old> <new>   (Nhân bản website)
  mme site rename <old> <new>  (Đổi tên miền website)
  mme db                       (Sửa cấu hình MySQL/MariaDB)
@@ -790,6 +791,75 @@ def cmd_db(args):
     subprocess.run(["nano", "/etc/mysql/conf.d/my.cnf"])
     log_info("Ghi nhớ chạy lệnh `wo stack reload --mysql` hoặc `systemctl restart mariadb` để áp dụng cấu hình mới.")
 
+def cmd_copy(args):
+    source_dir = args.source.rstrip("/")
+    dest_dir = args.dest
+    
+    if not os.path.exists(source_dir):
+        log_error(f"Thư mục nguồn {source_dir} không tồn tại!")
+        return
+        
+    print("\\n" + "="*64)
+    print(f" BẠN ĐANG CHUẨN BỊ COPY THƯ MỤC SANG VPS MỚI")
+    print(f" Nguồn: {source_dir}")
+    print(f" Đích:  {dest_dir}")
+    print("="*64)
+    print("Vui lòng nhập thông tin VPS đích (VPS nhận):")
+    
+    ip = input("1. Nhập IP máy chủ đích: ").strip()
+    if not ip:
+        log_error("IP không được để trống!")
+        return
+        
+    port = input("2. Nhập Port SSH (Nhấn Enter để dùng mặc định 22): ").strip()
+    if not port:
+        port = "22"
+        
+    user = input("3. Nhập User SSH (Nhấn Enter để dùng mặc định root): ").strip()
+    if not user:
+        user = "root"
+
+    # Đảm bảo có SSH key
+    ensure_ssh_key()
+    
+    pub_key_path = "/root/.ssh/id_ed25519.pub"
+    if not os.path.exists(pub_key_path):
+        pub_key_path = "/root/.ssh/id_rsa.pub"
+        
+    with open(pub_key_path, "r") as f:
+        pub_key = f.read().strip()
+        
+    print("\\n" + "="*64)
+    print(" BƯỚC 1: CẤP QUYỀN Ở VPS ĐÍCH")
+    print("="*64)
+    print(f"Bạn hãy mở một phần mềm SSH mới, đăng nhập vào VPS đích ({ip})")
+    print("sau đó copy và dán toàn bộ đoạn lệnh dưới đây vào rồi nhấn Enter:")
+    print("\\n" + f"mkdir -p ~/.ssh && chmod 700 ~/.ssh && echo '{pub_key}' >> ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys" + "\\n")
+    print("="*64)
+    
+    input("BƯỚC 2: Sau khi đã chạy lệnh trên ở VPS đích, hãy nhấn Enter tại đây để bắt đầu copy...")
+    
+    log_info(f"Đang tạo trước thư mục đích tại {user}@{ip}...")
+    mkdir_cmd = ["ssh", "-p", port, "-o", "StrictHostKeyChecking=no", "-i", "/root/.ssh/id_ed25519", f"{user}@{ip}", f"mkdir -p {dest_dir}"]
+    res = subprocess.run(mkdir_cmd)
+    if res.returncode != 0:
+        log_error("Lỗi kết nối SSH đến VPS đích. Bạn đã chạy lệnh cấp quyền ở VPS đích chưa?")
+        return
+
+    log_info(f"Đang bắt đầu chuyển dữ liệu (Tốc độ phụ thuộc vào mạng)...")
+    rsync_cmd = [
+        "rsync", "-avz", "--progress",
+        "-e", f"ssh -p {port} -o StrictHostKeyChecking=no -i /root/.ssh/id_ed25519",
+        source_dir + "/", # Chỉ copy nội dung, không tạo thêm thư mục cha lồng nhau
+        f"{user}@{ip}:{dest_dir}"
+    ]
+    
+    try:
+        subprocess.run(rsync_cmd)
+        log_info("✅ Quá trình copy đã hoàn tất xuất sắc!")
+    except Exception as e:
+        log_error(f"Quá trình copy bị lỗi: {str(e)}")
+
 def main():
     if len(sys.argv) == 1 or (len(sys.argv) == 2 and sys.argv[1] in ["-h", "--help"]):
         print(CUSTOM_HELP.strip())
@@ -809,6 +879,12 @@ def main():
     # --- role ---
     role_parser = subparsers.add_parser("role", help="Tự động cấp quyền 644/755/www-data cho thư mục hiện tại")
     role_parser.set_defaults(func=cmd_role)
+    
+    # --- copy ---
+    copy_parser = subparsers.add_parser("copy", help="Sao chép thư mục sang VPS khác qua rsync")
+    copy_parser.add_argument("source", help="Đường dẫn thư mục gốc (VD: /var/www/abc)")
+    copy_parser.add_argument("dest", help="Đường dẫn thư mục đích trên VPS mới (VD: /var/www/xyz)")
+    copy_parser.set_defaults(func=cmd_copy)
     
     # --- deploy ---
     deploy_parser = subparsers.add_parser("deploy", help="Quản lý Git Auto Deploy")

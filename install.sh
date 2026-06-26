@@ -67,7 +67,7 @@ _mme_completion() {
         prev="${words[cword-1]}"
     }
 
-    local commands="deploy site role db update"
+    local commands="deploy site role copy db update"
     local deploy_commands="add edit list run rollback logs"
     local site_commands="pause start lockon lockoff clone rename wpmme thememme"
     
@@ -145,6 +145,7 @@ echo " mme site start <domain>      (Tắt chế độ bảo trì)"
 echo " mme site lockon <domain>     (Bật khóa bảo mật site)"
 echo " mme site lockoff <domain>    (Tắt khóa bảo mật site)"
 echo " mme role                     (Fix quyền 644/755/www-data)"
+echo " mme copy <nguồn> <đích>      (Sao chép thư mục sang VPS khác)"
 echo " mme site clone <old> <new>   (Nhân bản website)"
 echo " mme site rename <old> <new>  (Đổi tên miền website)"
 echo " mme db                       (Sửa cấu hình MySQL/MariaDB)"

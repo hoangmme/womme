@@ -129,7 +129,14 @@ Chuyển website từ domain cũ sang domain mới với công nghệ "Instant M
 mme site rename old.com new.com
 ```
 
-### 7. Cập nhật MMe CLI Tool (`update`)
+### 7. Copy file sang máy chủ (VPS) khác cực nhanh (`copy`)
+Lệnh này giúp bạn chuyển một thư mục bất kỳ từ VPS hiện tại sang VPS mới thông qua đường truyền nội bộ SSH (rsync) một cách bảo mật tuyệt đối (Tự động thiết lập SSH Key):
+```bash
+mme copy /var/www/domain.com/htdocs /var/www/newdomain.com/htdocs
+```
+Hệ thống sẽ hướng dẫn bạn từng bước cách cấp quyền ở VPS mới và tự động chạy tiến trình copy siêu mượt mà.
+
+### 8. Cập nhật MMe CLI Tool (`update`)
 Cập nhật công cụ `mme` trên server của bạn lên phiên bản mới nhất từ Github:
 ```bash
 mme update
