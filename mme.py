@@ -118,10 +118,10 @@ MAINTENANCE_HTML = """<!DOCTYPE html>
 </html>"""
 
 def log_info(msg):
-    print(f"[INFO] {msg}")
+    print(f"\033[92m[INFO] {msg}\033[0m")
 
 def log_error(msg):
-    print(f"[ERROR] {msg}", file=sys.stderr)
+    print(f"\033[91m[ERROR] {msg}\033[0m", file=sys.stderr)
 
 def load_config():
     if not os.path.exists(DEPLOY_CONFIG_FILE):
@@ -799,25 +799,25 @@ def cmd_copy(args):
         log_error(f"Thư mục nguồn {source_dir} không tồn tại!")
         return
         
-    print("\\n" + "="*64)
+    print("\n" + "="*64)
     print(f" BẠN ĐANG CHUẨN BỊ COPY THƯ MỤC SANG VPS MỚI")
     print(f" Nguồn: {source_dir}")
     print(f" Đích:  {dest_dir}")
     print("="*64)
-    print("Vui lòng nhập thông tin VPS đích (VPS nhận):")
     
-    ip = input("1. Nhập IP máy chủ đích: ").strip()
-    if not ip:
-        log_error("IP không được để trống!")
+    conn_str = input("Nhập thông tin VPS đích (VD: root@103.110.87.69:22 hoặc chỉ nhập IP): ").strip()
+    if not conn_str:
+        log_error("Thông tin VPS đích không được để trống!")
         return
         
-    port = input("2. Nhập Port SSH (Nhấn Enter để dùng mặc định 22): ").strip()
-    if not port:
-        port = "22"
-        
-    user = input("3. Nhập User SSH (Nhấn Enter để dùng mặc định root): ").strip()
-    if not user:
-        user = "root"
+    user = "root"
+    port = "22"
+    ip = conn_str
+    
+    if "@" in ip:
+        user, ip = ip.split("@", 1)
+    if ":" in ip:
+        ip, port = ip.split(":", 1)
 
     # Đảm bảo có SSH key
     ensure_ssh_key()
@@ -829,12 +829,12 @@ def cmd_copy(args):
     with open(pub_key_path, "r") as f:
         pub_key = f.read().strip()
         
-    print("\\n" + "="*64)
+    print("\n" + "="*64)
     print(" BƯỚC 1: CẤP QUYỀN Ở VPS ĐÍCH")
     print("="*64)
     print(f"Bạn hãy mở một phần mềm SSH mới, đăng nhập vào VPS đích ({ip})")
-    print("sau đó copy và dán toàn bộ đoạn lệnh dưới đây vào rồi nhấn Enter:")
-    print("\\n" + f"mkdir -p ~/.ssh && chmod 700 ~/.ssh && echo '{pub_key}' >> ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys" + "\\n")
+    print("sau đó copy và dán đoạn lệnh dưới đây vào rồi nhấn Enter:")
+    print(f"\nmkdir -p ~/.ssh && chmod 700 ~/.ssh && echo '{pub_key}' >> ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys\n")
     print("="*64)
     
     input("BƯỚC 2: Sau khi đã chạy lệnh trên ở VPS đích, hãy nhấn Enter tại đây để bắt đầu copy...")
