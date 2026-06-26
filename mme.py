@@ -318,14 +318,39 @@ def cmd_deploy_list(args):
     if not config:
         log_info("Chưa có cấu hình deploy nào.")
         return
-    log_info("Danh sách cấu hình Git Auto Deploy:")
+        
+    log_info("Đang kiểm tra kết nối SSH và Webhook (Vui lòng đợi vài giây)...")
+    
+    print("\n" + "="*60)
+    print(" DANH SÁCH CẤU HÌNH GIT AUTO DEPLOY")
+    print("="*60)
+    
     for domain, conf in config.items():
-        print(f"- Domain: {domain}")
-        print(f"  Repo:   {conf.get('repo')}")
-        print(f"  Branch: {conf.get('branch')}")
-        print(f"  Path:   {conf.get('path')}")
-        print(f"  Build:  {conf.get('build')}")
-        print("")
+        repo = conf.get('repo', '')
+        
+        # 1. Kiểm tra kết nối SSH tới Git
+        ssh_status = "\033[91m❌ LỖI (Chưa thêm Public Key vào Github/Gitlab)\033[0m"
+        if repo:
+            os.environ["GIT_SSH_COMMAND"] = "ssh -o StrictHostKeyChecking=no -i /root/.ssh/id_ed25519 -o ConnectTimeout=5 -o BatchMode=yes"
+            res = subprocess.run(["git", "ls-remote", repo], capture_output=True)
+            if res.returncode == 0:
+                ssh_status = "\033[92m✅ OK\033[0m"
+                
+        # 2. Kiểm tra trạng thái Webhook của plugin WPMMe
+        webhook_status = "\033[91m❌ LỖI (WPMMe chưa được cài đặt hoặc kích hoạt)\033[0m"
+        curl_cmd = ["curl", "-L", "-X", "POST", "-s", "-o", "/dev/null", "-w", "%{http_code}", f"https://{domain}/wp-json/wpmme/v1/deploy"]
+        res = subprocess.run(curl_cmd, capture_output=True, text=True)
+        if res.stdout.strip() in ["200", "201"]:
+            webhook_status = "\033[92m✅ OK\033[0m"
+            
+        print(f"- Domain:  \033[1m{domain}\033[0m")
+        print(f"  Repo:    {repo}")
+        print(f"  Branch:  {conf.get('branch')}")
+        print(f"  Path:    {conf.get('path')}")
+        print(f"  Build:   {conf.get('build')}")
+        print(f"  SSH:     {ssh_status}")
+        print(f"  Webhook: {webhook_status}")
+        print("-" * 60)
 
 def run_daemon(action, domain):
     daemon_path = "/usr/local/bin/womme-daemon.py"
