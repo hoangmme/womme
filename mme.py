@@ -169,7 +169,7 @@ def cmd_role(args):
     
     log_info("Hoàn tất cấp quyền!")
 
-def cmd_deploy_add(args):
+def cmd_deploy_push(args):
     repo = args.repo
     branch = args.branch
     path = args.path
@@ -381,7 +381,7 @@ def run_daemon(action, domain):
     else:
         log_error(f"Không tìm thấy womme-daemon.py tại {daemon_path}")
 
-def cmd_deploy_run(args):
+def cmd_deploy_pull(args):
     log_info(f"Đang kích hoạt deploy thủ công cho {args.domain}...")
     run_daemon("--run", args.domain)
 
@@ -932,14 +932,14 @@ def main():
     deploy_parser = subparsers.add_parser("deploy", help="Quản lý Git Auto Deploy")
     deploy_sub = deploy_parser.add_subparsers(dest="deploy_cmd", required=True)
     
-    # deploy add / push
-    deploy_add = deploy_sub.add_parser("add", aliases=["push"], help="Thêm cấu hình deploy cho domain")
-    deploy_add.add_argument("domain", help="Tên miền (VD: mme.vn)")
-    deploy_add.add_argument("--repo", required=False, default=None, help="Git repo URL")
-    deploy_add.add_argument("--branch", default="", help="Branch (Mặc định: Tự động lấy branch chính của repo)")
-    deploy_add.add_argument("--path", default="", help="Đường dẫn lưu code (mặc định: root htdocs)")
-    deploy_add.add_argument("--build", default="", help="Lệnh build (VD: npm run build)")
-    deploy_add.set_defaults(func=cmd_deploy_add)
+    # deploy push
+    deploy_push = deploy_sub.add_parser("push", help="Thêm cấu hình deploy cho domain")
+    deploy_push.add_argument("domain", help="Tên miền (VD: mme.vn)")
+    deploy_push.add_argument("--repo", required=False, default=None, help="Git repo URL")
+    deploy_push.add_argument("--branch", default="", help="Branch (Mặc định: Tự động lấy branch chính của repo)")
+    deploy_push.add_argument("--path", default="", help="Đường dẫn lưu code (mặc định: root htdocs)")
+    deploy_push.add_argument("--build", default="", help="Lệnh build (VD: npm run build)")
+    deploy_push.set_defaults(func=cmd_deploy_push)
     
     # deploy edit
     deploy_edit = deploy_sub.add_parser("edit", help="Sửa cấu hình deploy hiện tại")
@@ -950,10 +950,10 @@ def main():
     deploy_list = deploy_sub.add_parser("list", help="Danh sách cấu hình deploy")
     deploy_list.set_defaults(func=cmd_deploy_list)
     
-    # deploy run / pull
-    deploy_run = deploy_sub.add_parser("run", aliases=["pull"], help="Chạy deploy thủ công")
-    deploy_run.add_argument("domain", help="Tên miền")
-    deploy_run.set_defaults(func=cmd_deploy_run)
+    # deploy pull
+    deploy_pull = deploy_sub.add_parser("pull", help="Chạy deploy thủ công")
+    deploy_pull.add_argument("domain", help="Tên miền")
+    deploy_pull.set_defaults(func=cmd_deploy_pull)
     
     # deploy rollback
     deploy_rollback = deploy_sub.add_parser("rollback", help="Khôi phục code bản trước đó")

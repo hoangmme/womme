@@ -68,7 +68,7 @@ _mme_completion() {
     }
 
     local commands="deploy site role copy db update"
-    local deploy_commands="add push edit list run pull rollback logs"
+    local deploy_commands="push pull edit list rollback logs"
     local site_commands="pause start lockon lockoff clone rename wpmme thememme"
     
     # Lấy danh sách tên miền từ /var/www (bỏ qua các thư mục hệ thống của WordOps)
