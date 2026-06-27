@@ -408,8 +408,32 @@ def cmd_deploy_list(args):
         print(f"  Repo:    {repo}")
         if conf.get('branch'):
             print(f"  Branch:  {conf.get('branch')}")
-        if conf.get('path'):
-            print(f"  Path:    {conf.get('path')}")
+            
+        path_val = conf.get('path', '')
+        if path_val:
+            path_status = path_val
+            full_path = f"/var/www/{domain}/htdocs/{path_val}"
+            
+            if path_val.startswith("wp-content/themes/"):
+                try:
+                    active_theme_res = subprocess.run(
+                        ["wp", "theme", "list", "--status=active", "--field=name", f"--path=/var/www/{domain}/htdocs", "--allow-root"],
+                        capture_output=True, text=True, timeout=5
+                    )
+                    active_theme = active_theme_res.stdout.strip()
+                    theme_folder = path_val.replace("wp-content/themes/", "").strip("/")
+                    if active_theme and active_theme != theme_folder:
+                        path_status += f"\n           \033[93m⚠️ CẢNH BÁO: Đây KHÔNG PHẢI là theme đang kích hoạt ({active_theme}). Nếu cấu hình sai, gõ 'mme deploy edit {domain}' để sửa.\033[0m"
+                except:
+                    pass
+            elif path_val.startswith("wp-content/plugins/"):
+                if not os.path.exists(full_path):
+                    path_status += f"\n           \033[93m⚠️ CẢNH BÁO: Thư mục plugin này chưa tồn tại. Code đẩy về sẽ tạo thư mục mới nhưng plugin có thể chưa được kích hoạt.\033[0m"
+            else:
+                if not os.path.exists(full_path):
+                    path_status += f"\n           \033[93m⚠️ CẢNH BÁO: Đường dẫn này không tồn tại trên máy chủ.\033[0m"
+                    
+            print(f"  Path:    {path_status}")
         if conf.get('build'):
             print(f"  Build:   {conf.get('build')}")
         print(f"  Webhook: {webhook_status}")
