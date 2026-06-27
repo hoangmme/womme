@@ -291,7 +291,18 @@ def cmd_deploy_push(args):
     
     print("\\n" + "="*64)
     print(" HƯỚNG DẪN CÀI ĐẶT GITHUB WEBHOOK & DEPLOY KEY")
-    pridef cmd_deploy_edit(args):
+    print("="*64)
+    print("1. Copy toàn bộ Public Key (ở trên) và thêm vào phần:")
+    print("   [Tên Repo của bạn] > Settings > Deploy Keys > Add deploy key")
+    print("2. Thêm Webhook URL sau vào phần:")
+    print("   [Tên Repo của bạn] > Settings > Webhooks > Add webhook")
+    print(f"   - Payload URL: https://{args.domain}/wp-json/wpmme/v1/deploy")
+    print("   - Content type: application/json")
+    print("="*64 + "\n")
+    
+    log_info(f"Để chạy thử deploy lần đầu thủ công, hãy gõ lệnh: mme deploy pull {args.domain}")
+
+def cmd_deploy_edit(args):
     config = load_config()
     if args.domain not in config:
         log_error(f"Domain {args.domain} chưa có cấu hình deploy. Vui lòng dùng lệnh 'mme deploy push' trước.")
