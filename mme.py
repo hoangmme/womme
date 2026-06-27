@@ -405,6 +405,58 @@ def cmd_deploy_edit(args):
     print("   - Content type: application/json")
     print("="*64 + "\\n")
 
+def cmd_deploy_delete(args):
+    config = load_config()
+    if args.domain not in config:
+        log_error(f"Domain {args.domain} chưa có cấu hình deploy nào.")
+        return
+        
+    conf_list = config[args.domain]
+    if isinstance(conf_list, dict):
+        conf_list = [conf_list]
+        
+    if len(conf_list) == 1:
+        ans = input(f"Bạn có chắc muốn xóa cấu hình deploy của {args.domain}? [y/N]: ").strip().lower()
+        if ans == 'y':
+            del config[args.domain]
+            save_config(config)
+            log_info(f"Đã xóa toàn bộ cấu hình deploy của {args.domain}.")
+    else:
+        print(f"\nDomain \033[96m{args.domain}\033[0m đang có {len(conf_list)} cấu hình:")
+        for i, conf in enumerate(conf_list):
+            print(f"  [{i+1}] Repo: {conf.get('repo', '')} -> Path: {conf.get('path', 'htdocs')}")
+        print(f"  [{len(conf_list)+1}] \033[91mXóa toàn bộ cấu hình của domain này\033[0m")
+        print("  [0] Hủy bỏ")
+        
+        while True:
+            try:
+                choice = int(input(f"Nhập số thứ tự cấu hình muốn xóa (0-{len(conf_list)+1}): ").strip())
+                if choice == 0:
+                    print("Đã hủy bỏ.")
+                    return
+                elif choice == len(conf_list) + 1:
+                    ans = input(f"Bạn có chắc muốn xóa TOÀN BỘ cấu hình của {args.domain}? [y/N]: ").strip().lower()
+                    if ans == 'y':
+                        del config[args.domain]
+                        save_config(config)
+                        log_info(f"Đã xóa toàn bộ cấu hình deploy của {args.domain}.")
+                    return
+                elif 1 <= choice <= len(conf_list):
+                    idx = choice - 1
+                    deleted_repo = conf_list[idx].get('repo', '')
+                    ans = input(f"Xác nhận xóa cấu hình [{choice}] ({deleted_repo})? [y/N]: ").strip().lower()
+                    if ans == 'y':
+                        conf_list.pop(idx)
+                        if len(conf_list) == 0:
+                            del config[args.domain]
+                        else:
+                            config[args.domain] = conf_list
+                        save_config(config)
+                        log_info(f"Đã xóa cấu hình [{choice}] của {args.domain}.")
+                    return
+            except:
+                pass
+
 def cmd_deploy_list(args):
     config = load_config()
     if not config:
@@ -1120,6 +1172,11 @@ def main():
     deploy_logs = deploy_sub.add_parser("logs", help="Xem nhật ký deploy")
     deploy_logs.add_argument("domain", help="Tên miền")
     deploy_logs.set_defaults(func=cmd_deploy_logs)
+    
+    # deploy delete
+    deploy_delete = deploy_sub.add_parser("delete", help="Xóa cấu hình deploy")
+    deploy_delete.add_argument("domain", help="Tên miền")
+    deploy_delete.set_defaults(func=cmd_deploy_delete)
     
     # --- site ---
     site_parser = subparsers.add_parser("site", help="Quản lý website (bảo trì, nhân bản)")
