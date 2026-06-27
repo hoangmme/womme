@@ -339,6 +339,14 @@ def cmd_deploy_list(args):
                     ssh_status = "\033[92m✅ OK\033[0m"
                 break
                 
+    if "❌ LỖI" in ssh_status:
+        try:
+            with open("/root/.ssh/id_ed25519.pub", "r") as f:
+                pub_key = f.read().strip()
+            ssh_status += f"\n                              \033[93m👉 Hãy copy đoạn Public Key dưới đây và thêm vào Github:\033[0m\n                              \033[36m{pub_key}\033[0m"
+        except:
+            pass
+                
     print("\n\033[96m" + "="*60 + "\033[0m")
     print("\033[1;92m TRẠNG THÁI HỆ THỐNG\033[0m")
     print("\033[96m" + "="*60 + "\033[0m")
@@ -357,6 +365,8 @@ def cmd_deploy_list(args):
         res = subprocess.run(curl_cmd, capture_output=True, text=True)
         if res.stdout.strip() in ["200", "201"]:
             webhook_status = "\033[92m✅ OK\033[0m"
+        else:
+            webhook_status += f"\n           \033[93m👉 Payload URL: \033[1;36mhttps://{domain}/wp-json/wpmme/v1/deploy\033[0m"
             
         print(f"- Domain:  \033[1;96m{domain}\033[0m")
         print(f"  Repo:    {repo}")
