@@ -61,7 +61,7 @@ def process_deploy(domain, config):
 
     try:
         repo = config.get("repo")
-        branch = config.get("branch", "main")
+        branch = config.get("branch", "")
         target_path = config.get("path", "").strip("/")
         build_cmd = config.get("build", "")
 
@@ -207,8 +207,8 @@ class WebhookHandler(BaseHTTPRequestHandler):
             ref = payload.get('ref', '')
             push_branch = ref.split('/')[-1] if ref else ''
             
-            target_branch = config.get("branch", "main")
-            if push_branch and push_branch != target_branch:
+            target_branch = config.get("branch", "")
+            if target_branch and push_branch and push_branch != target_branch:
                 self.send_response(200)
                 self.end_headers()
                 self.wfile.write(f"Push to branch {push_branch} ignored. Target is {target_branch}.".encode())
