@@ -1,0 +1,74 @@
+.mce-visualblocks p, .mce-visualblocks h1, .mce-visualblocks h2, .mce-visualblocks h3, .mce-visualblocks h4, .mce-visualblocks h5, .mce-visualblocks h6, .mce-visualblocks div:not([data-mce-bogus]), .mce-visualblocks section, .mce-visualblocks article, .mce-visualblocks blockquote, .mce-visualblocks address, .mce-visualblocks pre, .mce-visualblocks figure, .mce-visualblocks hgroup, .mce-visualblocks aside, .mce-visualblocks ul, .mce-visualblocks ol, .mce-visualblocks dl {
+	padding-top: 10px;
+	border: 1px dashed #017CBA;
+	margin-left: 2px;
+}
+.mce-visualblocks p:before, .mce-visualblocks h1:before, .mce-visualblocks h2:before, .mce-visualblocks h3:before, .mce-visualblocks h4:before, .mce-visualblocks h5:before, .mce-visualblocks h6:before, .mce-visualblocks div:not([data-mce-bogus]):before, .mce-visualblocks section:before, .mce-visualblocks article:before, .mce-visualblocks blockquote:before, .mce-visualblocks address:before, .mce-visualblocks pre:before, .mce-visualblocks figure:before, .mce-visualblocks hgroup:before, .mce-visualblocks aside:before, .mce-visualblocks ul:before, .mce-visualblocks ol:before, .mce-visualblocks dl:before {
+    color: #fff;
+    margin-top: -10px;
+    position: absolute;
+    background: #017CBA;
+    font-size: 7pt;
+	font-style: italic;
+    padding: 0 4px;
+}
+.mce-visualblocks p:before {
+    content: "P";
+}
+.mce-visualblocks h1:before {
+    content: "H1";
+}
+.mce-visualblocks h2:before {
+    content: "H2";
+}
+.mce-visualblocks h3:before {
+    content: "H3";
+}
+.mce-visualblocks h4:before {
+    content: "H4";
+}
+.mce-visualblocks h5:before {
+    content: "H5";
+}
+.mce-visualblocks h6:before {
+    content: "H6";
+}
+.mce-visualblocks div:not([data-mce-bogus]):before {
+    content: "DIV";
+}
+.mce-visualblocks section:before {
+    content: "SECTION";
+}
+.mce-visualblocks article:before {
+    content: "ARTICLE";
+}
+.mce-visualblocks blockquote:before {
+    content: "BLOCKQUOTE";
+}
+.mce-visualblocks address:before {
+    content: "ADDRESS";
+}
+.mce-visualblocks pre:before {
+    content: "PRE";
+}
+.mce-visualblocks figure:before {
+    content: "FIGURE";
+}
+.mce-visualblocks hgroup:before {
+    content: "HGROUP";
+}
+.mce-visualblocks aside:before {
+    content: "ASIDE";
+}
+.mce-visualblocks ul:before {
+    content: "UL";
+}
+.mce-visualblocks ol:before {
+    content: "OL";
+}
+.mce-visualblocks dl:before {
+    content: "DL";
+}
+.mce-visualblocks figcaption {
+	border: 1px dashed #017CBA;
+}

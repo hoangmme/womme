@@ -1,0 +1,283 @@
+.wpmme-wrap {
+    max-width: 900px;
+    margin: 20px auto;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif;
+    padding-bottom: 80px;
+}
+
+.wpmme-header {
+    background: #fff;
+    padding: 20px 30px;
+    border-radius: 8px;
+    margin-bottom: 30px;
+    border: 1px solid #e0e0e0;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+}
+
+.wpmme-header h1 {
+    margin: 0;
+    color: #1d2327;
+    font-size: 24px;
+    display: flex;
+    align-items: center;
+}
+
+.wpmme-version {
+    font-size: 14px;
+    background: #2271b1;
+    color: #fff;
+    padding: 2px 8px;
+    border-radius: 12px;
+    margin-left: 10px;
+}
+
+.wpmme-section-title {
+    font-size: 20px;
+    margin: 40px 0 20px;
+    color: #1d2327;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.wpmme-card {
+    background: #fff;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    margin-bottom: 15px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+    transition: all 0.2s ease;
+}
+
+.wpmme-card:hover {
+    box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+}
+
+.wpmme-card-header {
+    padding: 20px 25px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.wpmme-card-info h3 {
+    margin: 0 0 5px 0;
+    font-size: 16px;
+    color: #1d2327;
+}
+
+.wpmme-card-info p {
+    margin: 0;
+    color: #50575e;
+    font-size: 14px;
+}
+
+.wpmme-card-body {
+    padding: 20px 25px;
+    border-top: 1px solid #e0e0e0;
+    background: #fafafa;
+    border-bottom-left-radius: 8px;
+    border-bottom-right-radius: 8px;
+}
+
+/* iOS Toggle Switch */
+.wpmme-switch {
+    position: relative;
+    display: inline-block;
+    width: 50px;
+    height: 28px;
+    flex-shrink: 0;
+}
+
+.wpmme-switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.wpmme-slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #dcdcde;
+    transition: .4s;
+    border-radius: 34px;
+}
+
+.wpmme-slider:before {
+    position: absolute;
+    content: "";
+    height: 20px;
+    width: 20px;
+    left: 4px;
+    bottom: 4px;
+    background-color: white;
+    transition: .4s;
+    border-radius: 50%;
+}
+
+input:checked + .wpmme-slider {
+    background-color: #2271b1;
+}
+
+input:checked + .wpmme-slider:before {
+    transform: translateX(22px);
+}
+
+/* Forms */
+.wpmme-form-group {
+    margin-bottom: 15px;
+}
+
+.wpmme-form-group > label {
+    display: block;
+    font-weight: 600;
+    margin-bottom: 8px;
+    color: #1d2327;
+}
+
+.wpmme-form-group p.description {
+    margin-top: 5px;
+}
+
+.wpmme-upload-wrap {
+    display: flex;
+    gap: 10px;
+}
+
+.wpmme-range-wrap {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.wpmme-range {
+    width: 250px;
+}
+
+.wpmme-range-val {
+    background: #e0e0e0;
+    padding: 4px 8px;
+    border-radius: 4px;
+    min-width: 30px;
+    text-align: center;
+    font-weight: 600;
+}
+
+/* Watermark Grid */
+.wpmme-position-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 40px);
+    grid-gap: 5px;
+}
+
+.wpmme-pos-item {
+    position: relative;
+    width: 40px;
+    height: 40px;
+    cursor: pointer;
+}
+
+.wpmme-pos-item input {
+    display: none;
+}
+
+.wpmme-pos-item span {
+    display: block;
+    width: 100%;
+    height: 100%;
+    background: #e0e0e0;
+    border-radius: 4px;
+    transition: .3s;
+}
+
+.wpmme-pos-item span:hover {
+    background: #c0c0c0;
+}
+
+.wpmme-pos-item input:checked + span {
+    background: #2271b1;
+}
+
+/* Buttons */
+.wpmme-btn-action {
+    margin-top: 10px;
+}
+
+/* Footer */
+.wpmme-footer {
+    position: fixed;
+    bottom: 0;
+    left: 160px; /* wp admin menu width */
+    right: 0;
+    background: #fff;
+    padding: 15px 30px;
+    border-top: 1px solid #e0e0e0;
+    display: flex;
+    gap: 15px;
+    box-shadow: 0 -2px 10px rgba(0,0,0,0.05);
+    z-index: 99;
+}
+
+@media screen and (max-width: 782px) {
+    .wpmme-footer {
+        left: 0;
+    }
+}
+
+/* Modal */
+.wpmme-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0,0,0,0.6);
+    z-index: 99999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.wpmme-modal-content {
+    background: #fff;
+    width: 400px;
+    padding: 30px;
+    border-radius: 8px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+}
+
+.wpmme-modal-content h3 {
+    margin-top: 0;
+    font-size: 20px;
+}
+
+.wpmme-progress {
+    height: 20px;
+    background: #e0e0e0;
+    border-radius: 10px;
+    margin: 20px 0 10px;
+    overflow: hidden;
+}
+
+.wpmme-progress-bar {
+    height: 100%;
+    background: #2271b1;
+    width: 0%;
+    transition: width 0.3s;
+}
+
+.wpmme-progress-text {
+    text-align: center;
+    font-weight: bold;
+    margin-bottom: 20px;
+}
+
+.wpmme-modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+}
