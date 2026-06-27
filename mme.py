@@ -919,7 +919,7 @@ def cmd_wpmme(args):
     plugin_url = "https://github.com/hoangmme/wpmme/archive/refs/heads/main.zip"
     cmd = [
         "wp", "plugin", "install", plugin_url,
-        "--activate",
+        "--activate", "--force",
         f"--path={htdocs_dir}",
         "--allow-root"
     ]
@@ -955,7 +955,7 @@ def cmd_thememme(args):
     theme_url = "https://github.com/hoangmme/thememme/archive/refs/heads/main.zip"
     cmd = [
         "wp", "theme", "install", theme_url,
-        "--activate",
+        "--activate", "--force",
         f"--path={htdocs_dir}",
         "--allow-root"
     ]
