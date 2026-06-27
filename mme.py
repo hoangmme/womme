@@ -508,26 +508,45 @@ def cmd_deploy_list(args):
         webhook_status = "\033[91m❌ LỖI (Chưa cài/Kích hoạt WPMMe)\033[0m"
         curl_cmd = ["curl", "-L", "-X", "POST", "-s", "-o", "/dev/null", "-w", "%{http_code}", f"https://{domain}/wp-json/wpmme/v1/deploy"]
         res = subprocess.run(curl_cmd, capture_output=True, text=True)
-        # 3. Kiểm tra log để xem Github đã thực sự gọi Webhook bao giờ chưa
+        # 3. Kiểm tra log để xem Github đã thực sự gọi Webhook bao giờ chưa & trạng thái Deploy
         last_webhook = ""
+        deploy_status_msg = ""
         log_file = f"/var/log/womme/{domain}.log"
         if os.path.exists(log_file):
             try:
                 with open(log_file, "r") as f:
                     lines = f.readlines()
                     for line in reversed(lines):
-                        if "⚡ Đã nhận Webhook thành công" in line:
+                        if not last_webhook and "⚡ Đã nhận Webhook thành công" in line:
                             parts = line.split("]", 1)
                             if len(parts) > 1:
                                 time_str = parts[0].strip("[")
-                                last_webhook = f" \033[90m(Nhận code lần cuối: {time_str})\033[0m"
-                                break
+                                last_webhook = f" \033[90m(Nhận webhook: {time_str})\033[0m"
+                                
+                        if not deploy_status_msg:
+                            if "=== DEPLOY THÀNH CÔNG ===" in line:
+                                deploy_status_msg = "\n           \033[92m✅ Trạng thái Pull Code: Thành công\033[0m"
+                            elif "LỖI Clone:" in line:
+                                err = line.split("LỖI Clone:", 1)[1].strip()
+                                if len(err) > 80: err = err[:77] + "..."
+                                deploy_status_msg = f"\n           \033[91m❌ LỖI GIT PULL:\033[0m {err}\n           \033[93m👉 Sửa: Kiểm tra lại SSH Key Github/Gitlab hoặc chạy 'mme deploy logs {domain}'\033[0m"
+                            elif "LỖI Build:" in line:
+                                err = line.split("LỖI Build:", 1)[1].strip()
+                                if len(err) > 80: err = err[:77] + "..."
+                                deploy_status_msg = f"\n           \033[91m❌ LỖI BUILD:\033[0m {err}\n           \033[93m👉 Sửa: Xem lại cấu hình build hoặc chạy 'mme deploy logs {domain}'\033[0m"
+                            elif "LỖI HỆ THỐNG TRONG QUÁ TRÌNH DEPLOY:" in line:
+                                err = line.split("DEPLOY:", 1)[1].strip()
+                                if len(err) > 80: err = err[:77] + "..."
+                                deploy_status_msg = f"\n           \033[91m❌ LỖI HỆ THỐNG:\033[0m {err}"
+                                
+                        if last_webhook and deploy_status_msg:
+                            break
             except:
                 pass
                 
         if res.stdout.strip() in ["200", "201"]:
             if last_webhook:
-                webhook_status = f"\033[92m✅ OK\033[0m{last_webhook}"
+                webhook_status = f"\033[92m✅ OK\033[0m{last_webhook}{deploy_status_msg}"
             else:
                 webhook_status = "\033[93m⚠️ Cổng đã mở (Chưa nhận được tín hiệu thực tế từ Github)\033[0m"
                 webhook_status += f"\n           \033[93m👉 Payload URL cần cấu hình: \033[1;36mhttps://{domain}/wp-json/wpmme/v1/deploy\033[0m"
