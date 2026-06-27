@@ -364,8 +364,25 @@ def cmd_deploy_list(args):
         webhook_status = "\033[91m❌ LỖI (Chưa cài/Kích hoạt WPMMe)\033[0m"
         curl_cmd = ["curl", "-L", "-X", "POST", "-s", "-o", "/dev/null", "-w", "%{http_code}", f"https://{domain}/wp-json/wpmme/v1/deploy"]
         res = subprocess.run(curl_cmd, capture_output=True, text=True)
+        # 3. Kiểm tra log để xem Github đã thực sự gọi Webhook bao giờ chưa
+        last_webhook = ""
+        log_file = f"/var/log/womme/{domain}.log"
+        if os.path.exists(log_file):
+            try:
+                with open(log_file, "r") as f:
+                    lines = f.readlines()
+                    for line in reversed(lines):
+                        if "⚡ Đã nhận Webhook thành công" in line:
+                            parts = line.split("]", 1)
+                            if len(parts) > 1:
+                                time_str = parts[0].strip("[")
+                                last_webhook = f" \033[90m(Nhận code lần cuối: {time_str})\033[0m"
+                                break
+            except:
+                pass
+                
         if res.stdout.strip() in ["200", "201"]:
-            webhook_status = "\033[92m✅ OK\033[0m"
+            webhook_status = f"\033[92m✅ OK\033[0m{last_webhook}"
         else:
             webhook_status += f"\n           \033[93m👉 Payload URL: \033[1;36mhttps://{domain}/wp-json/wpmme/v1/deploy\033[0m"
             

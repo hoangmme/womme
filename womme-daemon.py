@@ -220,6 +220,8 @@ class WebhookHandler(BaseHTTPRequestHandler):
         self.send_response(200)
         self.end_headers()
         self.wfile.write(b"Webhook received. Deploying in background...")
+        
+        log_message(domain, f"⚡ Đã nhận Webhook thành công từ Github/Gitlab (Branch: {push_branch})")
 
         # Chạy deploy ngầm (fork)
         pid = os.fork()
