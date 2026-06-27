@@ -195,8 +195,22 @@ def cmd_deploy_push(args):
         repo_clean = repo.rstrip("/")
         repo_name = repo_clean.split("/")[-1].replace(".git", "") if repo_clean else ""
         if type_choice == "2":
-            path = f"wp-content/themes/{repo_name}"
-            print(f"   => Đã tự cấu hình đường dẫn Theme: {path}")
+            # Cố gắng lấy tên theme đang được kích hoạt trên WordPress
+            try:
+                active_theme_res = subprocess.run(
+                    ["wp", "theme", "list", "--status=active", "--field=name", f"--path=/var/www/{args.domain}/htdocs", "--allow-root"],
+                    capture_output=True, text=True, timeout=5
+                )
+                active_theme = active_theme_res.stdout.strip()
+            except:
+                active_theme = ""
+                
+            if active_theme:
+                path = f"wp-content/themes/{active_theme}"
+                print(f"   => Đã tự phát hiện Theme đang dùng và cấu hình: \033[96m{path}\033[0m")
+            else:
+                path = f"wp-content/themes/{repo_name}"
+                print(f"   => Đã tự cấu hình đường dẫn Theme theo tên repo: \033[96m{path}\033[0m")
         elif type_choice == "3":
             path = f"wp-content/plugins/{repo_name}"
             print(f"   => Đã tự cấu hình đường dẫn Plugin: {path}")
