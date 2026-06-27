@@ -68,8 +68,8 @@ _mme_completion() {
     }
 
     local commands="deploy site role copy db update"
-    local deploy_commands="push pull edit list rollback logs"
-    local site_commands="pause start lockon lockoff clone rename wpmme thememme"
+    local deploy_commands="push pull edit list rollback logs delete"
+    local site_commands="pause start lockon lockoff clone rename wpmme thememme mmeform"
     
     # Lấy danh sách tên miền từ /var/www (bỏ qua các thư mục hệ thống của WordOps)
     local domains=$(ls /var/www 2>/dev/null | grep -vE '^(html|22222|default)$')
@@ -99,14 +99,14 @@ _mme_completion() {
         case "$cmd" in
             deploy)
                 case "$subcmd" in
-                    push|edit|pull|rollback|logs)
+                    push|edit|pull|rollback|logs|delete)
                         COMPREPLY=( $(compgen -W "$domains" -- "$cur") )
                         ;;
                 esac
                 ;;
             site)
                 case "$subcmd" in
-                    pause|start|lockon|lockoff|clone|rename|wpmme|thememme)
+                    pause|start|lockon|lockoff|clone|rename|wpmme|thememme|mmeform)
                         COMPREPLY=( $(compgen -W "$domains" -- "$cur") )
                         ;;
                 esac
@@ -143,6 +143,7 @@ echo -e " \e[96mmme deploy list\e[0m              (Xem danh sách Auto Deploy)"
 echo -e " \e[96mmme deploy pull <domain>\e[0m     (Chạy Deploy thủ công)"
 echo -e " \e[96mmme deploy rollback <domain>\e[0m (Khôi phục bản cũ)"
 echo -e " \e[96mmme deploy logs <domain>\e[0m     (Xem nhật ký Deploy)"
+echo -e " \e[96mmme deploy delete <domain>\e[0m   (Xóa cấu hình Deploy)"
 echo -e " \e[96mmme site pause <domain>\e[0m      (Bật chế độ bảo trì)"
 echo -e " \e[96mmme site start <domain>\e[0m      (Tắt chế độ bảo trì)"
 echo -e " \e[96mmme site lockon <domain>\e[0m     (Bật khóa bảo mật site)"
@@ -154,6 +155,7 @@ echo -e " \e[96mmme site rename <old> <new>\e[0m  (Đổi tên miền website)"
 echo -e " \e[96mmme db\e[0m                       (Sửa cấu hình MySQL/MariaDB)"
 echo -e " \e[96mmme site wpmme <domain>\e[0m      (Cài & kích hoạt plugin WPMMe)"
 echo -e " \e[96mmme site thememme <domain>\e[0m   (Cài & kích hoạt theme WPMMe)"
+echo -e " \e[96mmme site mmeform <domain>\e[0m    (Cài & kích hoạt plugin MMeForm)"
 echo -e " \e[96mmme update\e[0m                   (Cập nhật MMe CLI lên bản mới nhất)"
 echo ""
 echo -e " \e[90mGõ \`mme <lệnh> --help\` để xem chi tiết cách dùng của một nhóm lệnh.\e[0m"
