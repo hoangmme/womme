@@ -320,16 +320,20 @@ def process_rollback(domain, config):
 if __name__ == "__main__":
     if len(sys.argv) > 1 and sys.argv[1] == "--run":
         domain = sys.argv[2]
-        config = load_config().get(domain)
-        if config:
-            process_deploy(domain, config)
+        config_data = load_config().get(domain)
+        if config_data:
+            conf_list = [config_data] if isinstance(config_data, dict) else config_data
+            for conf in conf_list:
+                process_deploy(domain, conf)
         else:
             print(f"Không tìm thấy cấu hình cho domain {domain}")
     elif len(sys.argv) > 1 and sys.argv[1] == "--rollback":
         domain = sys.argv[2]
-        config = load_config().get(domain)
-        if config:
-            process_rollback(domain, config)
+        config_data = load_config().get(domain)
+        if config_data:
+            conf_list = [config_data] if isinstance(config_data, dict) else config_data
+            for conf in conf_list:
+                process_rollback(domain, conf)
         else:
             print(f"Không tìm thấy cấu hình cho domain {domain}")
     else:
