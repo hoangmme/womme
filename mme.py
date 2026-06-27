@@ -192,7 +192,8 @@ def cmd_deploy_push(args):
         print("   [4] Tùy chỉnh đường dẫn riêng (Custom path)")
         type_choice = input("   -> Chọn (1/2/3/4) [Nhấn Enter mặc định là 1]: ").strip()
         
-        repo_name = repo.split("/")[-1].replace(".git", "") if repo else ""
+        repo_clean = repo.rstrip("/")
+        repo_name = repo_clean.split("/")[-1].replace(".git", "") if repo_clean else ""
         if type_choice == "2":
             path = f"wp-content/themes/{repo_name}"
             print(f"   => Đã tự cấu hình đường dẫn Theme: {path}")
