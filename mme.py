@@ -971,6 +971,7 @@ CUSTOM_HELP = """
  \033[96mmme db\033[0m                       (Sửa cấu hình MySQL/MariaDB)
  \033[96mmme site wpmme <domain>\033[0m      (Cài & kích hoạt plugin WPMMe)
  \033[96mmme site thememme <domain>\033[0m   (Cài & kích hoạt theme WPMMe)
+ \033[96mmme site mmeform <domain>\033[0m    (Cài & kích hoạt plugin MMeForm)
  \033[96mmme update\033[0m                   (Cập nhật MMe CLI lên bản mới nhất)
  
  \033[90mGõ `mme <lệnh> --help` để xem chi tiết cách dùng của một nhóm lệnh.\033[0m
@@ -1048,6 +1049,42 @@ def cmd_thememme(args):
             subprocess.run(["find", theme_dir, "-type", "f", "-exec", "chmod", "644", "{}", "+"])
     else:
         log_error(f"Lỗi khi cài đặt theme:\\n{result.stderr}")
+
+def cmd_mmeform(args):
+    domain = args.domain
+    site_dir = f"/var/www/{domain}"
+    if not os.path.exists(site_dir):
+        log_error(f"Site {domain} không tồn tại trong /var/www/")
+        return
+        
+    htdocs_dir = f"{site_dir}/htdocs"
+    if not os.path.exists(f"{htdocs_dir}/wp-config.php") and not os.path.exists(f"{site_dir}/wp-config.php"):
+        log_error(f"Site {domain} không phải là WordPress (không tìm thấy wp-config.php).")
+        return
+
+    log_info(f"Đang cài đặt và kích hoạt plugin MMeForm cho {domain}...")
+    
+    plugin_url = "https://github.com/hoangmme/mmeform/archive/refs/heads/main.zip"
+    cmd = [
+        "wp", "plugin", "install", plugin_url,
+        "--activate", "--force",
+        f"--path={htdocs_dir}",
+        "--allow-root"
+    ]
+    
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    if result.returncode == 0:
+        log_info(f"Đã cài đặt và kích hoạt thành công plugin mmeform cho {domain}.")
+        
+        # Tự động phân quyền
+        plugin_dir = f"{htdocs_dir}/wp-content/plugins/mmeform"
+        if os.path.exists(plugin_dir):
+            log_info("Đang tự động phân quyền (mme role) cho thư mục plugin...")
+            subprocess.run(["chown", "-R", "www-data:www-data", plugin_dir])
+            subprocess.run(["find", plugin_dir, "-type", "d", "-exec", "chmod", "755", "{}", "+"])
+            subprocess.run(["find", plugin_dir, "-type", "f", "-exec", "chmod", "644", "{}", "+"])
+    else:
+        log_error(f"Lỗi khi cài đặt plugin:\\n{result.stderr}")
 
 def cmd_update(args):
     log_info("Đang cập nhật MMe CLI Tool lên phiên bản mới nhất từ GitHub...")
@@ -1250,6 +1287,11 @@ def main():
     site_thememme = site_sub.add_parser("thememme", help="Cài và kích hoạt theme WPMMe")
     site_thememme.add_argument("domain", help="Tên miền (VD: mme.vn)")
     site_thememme.set_defaults(func=cmd_thememme)
+    
+    # site mmeform
+    site_mmeform = site_sub.add_parser("mmeform", help="Cài và kích hoạt plugin MMeForm")
+    site_mmeform.add_argument("domain", help="Tên miền (VD: mme.vn)")
+    site_mmeform.set_defaults(func=cmd_mmeform)
     
     # Phân tích lệnh
     try:
