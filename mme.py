@@ -257,12 +257,12 @@ def cmd_deploy_push(args):
     print("   - Content type: application/json")
     print("="*64 + "\\n")
     
-    log_info(f"Để chạy thử deploy lần đầu thủ công, hãy gõ lệnh: mme deploy run {args.domain}")
+    log_info(f"Để chạy thử deploy lần đầu thủ công, hãy gõ lệnh: mme deploy pull {args.domain}")
 
 def cmd_deploy_edit(args):
     config = load_config()
     if args.domain not in config:
-        log_error(f"Domain {args.domain} chưa có cấu hình deploy. Vui lòng dùng lệnh 'mme deploy add' trước.")
+        log_error(f"Domain {args.domain} chưa có cấu hình deploy. Vui lòng dùng lệnh 'mme deploy push' trước.")
         return
         
     old_conf = config[args.domain]
