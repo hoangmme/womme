@@ -538,6 +538,8 @@ def cmd_deploy_list(args):
                                 err = line.split("DEPLOY:", 1)[1].strip()
                                 if len(err) > 80: err = err[:77] + "..."
                                 deploy_status_msg = f"\n           \033[91m❌ LỖI HỆ THỐNG:\033[0m {err}"
+                            elif "KHÔNG KHỚP repo nào" in line:
+                                deploy_status_msg = f"\n           \033[91m❌ LỖI WEBHOOK:\033[0m Nhận được tín hiệu từ Github nhưng URL Repo không khớp cấu hình!\n           \033[93m👉 Sửa: Kiểm tra định dạng Payload (chọn application/json) hoặc check lại URL repo trong 'mme deploy edit {domain}'\033[0m"
                                 
                         if last_webhook and deploy_status_msg:
                             break
@@ -545,8 +547,10 @@ def cmd_deploy_list(args):
                 pass
                 
         if res.stdout.strip() in ["200", "201"]:
-            if last_webhook:
+            if last_webhook or deploy_status_msg:
                 webhook_status = f"\033[92m✅ OK\033[0m{last_webhook}{deploy_status_msg}"
+                if "❌ LỖI WEBHOOK" in deploy_status_msg:
+                    webhook_status = f"\033[91m❌ LỖI ĐỒNG BỘ\033[0m{last_webhook}{deploy_status_msg}"
             else:
                 webhook_status = "\033[93m⚠️ Cổng đã mở (Chưa nhận được tín hiệu thực tế từ Github)\033[0m"
                 webhook_status += f"\n           \033[93m👉 Payload URL cần cấu hình: \033[1;36mhttps://{domain}/wp-json/wpmme/v1/deploy\033[0m"

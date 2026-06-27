@@ -181,7 +181,17 @@ class WebhookHandler(BaseHTTPRequestHandler):
         post_data = self.rfile.read(content_length)
         
         try:
-            payload = json.loads(post_data.decode('utf-8'))
+            payload_str = post_data.decode('utf-8')
+            try:
+                payload = json.loads(payload_str)
+            except json.JSONDecodeError:
+                # Fallback for application/x-www-form-urlencoded
+                from urllib.parse import parse_qs
+                parsed = parse_qs(payload_str)
+                if 'payload' in parsed:
+                    payload = json.loads(parsed['payload'][0])
+                else:
+                    payload = {}
         except:
             payload = {}
 
@@ -214,6 +224,8 @@ class WebhookHandler(BaseHTTPRequestHandler):
                     break
                     
         if not matched_config:
+            if post_data:
+                log_message(domain, f"⚠️ Đã nhận Webhook nhưng KHÔNG KHỚP repo nào! (Webhook repo: {webhook_repo_urls})")
             self.send_response(200)
             self.end_headers()
             self.wfile.write(b"Webhook received but no matching repository config found.")
