@@ -164,19 +164,63 @@ class WebhookHandler(BaseHTTPRequestHandler):
             return
             
         domain = self.path.split("/hooks/")[-1].strip("/")
-        config = load_config().get(domain)
+        config_data = load_config().get(domain)
         
-        if not config:
+        if not config_data:
             self.send_response(404)
             self.end_headers()
             self.wfile.write(b"Domain config not found")
             return
+            
+        if isinstance(config_data, dict):
+            config_list = [config_data]
+        else:
+            config_list = config_data
 
         content_length = int(self.headers.get('Content-Length', 0))
         post_data = self.rfile.read(content_length)
+        
+        try:
+            payload = json.loads(post_data.decode('utf-8'))
+        except:
+            payload = {}
+
+        # Lấy thông tin Repo từ Webhook
+        repo_ssh_url = payload.get('repository', {}).get('ssh_url', '')
+        repo_html_url = payload.get('repository', {}).get('html_url', '')
+        repo_clone_url = payload.get('repository', {}).get('clone_url', '')
+        
+        # Hàm chuẩn hóa URL để so sánh
+        def normalize_repo_url(url):
+            url = url.replace("https://github.com/", "git@github.com:")
+            url = url.replace("https://gitlab.com/", "git@gitlab.com:")
+            if url.startswith("git@") and not url.endswith(".git"):
+                url += ".git"
+            return url
+            
+        webhook_repo_urls = [normalize_repo_url(u) for u in [repo_ssh_url, repo_html_url, repo_clone_url] if u]
+        
+        matched_config = None
+        
+        # Nếu chỉ có 1 cấu hình, mặc định dùng luôn (tương thích ngược)
+        if len(config_list) == 1:
+            matched_config = config_list[0]
+        else:
+            # Nếu có nhiều cấu hình, tìm cấu hình khớp repo
+            for conf in config_list:
+                conf_repo = normalize_repo_url(conf.get("repo", ""))
+                if conf_repo in webhook_repo_urls:
+                    matched_config = conf
+                    break
+                    
+        if not matched_config:
+            self.send_response(200)
+            self.end_headers()
+            self.wfile.write(b"Webhook received but no matching repository config found.")
+            return
 
         # 1. Xác thực Signature (Nếu có cấu hình Secret)
-        secret = config.get("secret")
+        secret = matched_config.get("secret")
         if secret:
             github_signature = self.headers.get('X-Hub-Signature-256')
             gitlab_token = self.headers.get('X-Gitlab-Token')
@@ -203,18 +247,17 @@ class WebhookHandler(BaseHTTPRequestHandler):
 
         # 2. Lấy thông tin Branch
         try:
-            payload = json.loads(post_data.decode('utf-8'))
             ref = payload.get('ref', '')
             push_branch = ref.split('/')[-1] if ref else ''
             
-            target_branch = config.get("branch", "")
+            target_branch = matched_config.get("branch", "")
             if target_branch and push_branch and push_branch != target_branch:
                 self.send_response(200)
                 self.end_headers()
                 self.wfile.write(f"Push to branch {push_branch} ignored. Target is {target_branch}.".encode())
                 return
         except:
-            pass # Bỏ qua nếu parse JSON lỗi (thường là ping event)
+            pass # Bỏ qua nếu parse lỗi (thường là ping event)
 
         # Báo OK ngay lập tức để Github không bị timeout
         self.send_response(200)
@@ -226,7 +269,7 @@ class WebhookHandler(BaseHTTPRequestHandler):
         # Chạy deploy ngầm (fork)
         pid = os.fork()
         if pid == 0:
-            process_deploy(domain, config)
+            process_deploy(domain, matched_config)
             os._exit(0)
 
 def run_server(port=8989):

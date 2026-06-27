@@ -128,7 +128,18 @@ def load_config():
         return {}
     try:
         with open(DEPLOY_CONFIG_FILE, 'r') as f:
-            return json.load(f)
+            config = json.load(f)
+            
+        migrated = False
+        for domain, val in config.items():
+            if isinstance(val, dict):
+                config[domain] = [val]
+                migrated = True
+                
+        if migrated:
+            save_config(config)
+            
+        return config
     except:
         return {}
 
@@ -253,12 +264,26 @@ def cmd_deploy_push(args):
             print(f"[INFO] Tự động bổ sung tên thư mục vào Path: {path}")
 
     config = load_config()
-    config[args.domain] = {
+    
+    new_entry = {
         "repo": repo,
         "branch": branch,
         "path": path,
         "build": build
     }
+    
+    if args.domain in config:
+        print(f"\nDomain \033[96m{args.domain}\033[0m đã có sẵn cấu hình deploy.")
+        ans = input("Bạn muốn (1) Thêm cấu hình mới này bên cạnh cấu hình cũ, hay (2) Ghi đè toàn bộ cấu hình cũ? [1/2, Mặc định: 1]: ").strip()
+        if ans == "2":
+            config[args.domain] = [new_entry]
+            log_info(f"Đã ghi đè cấu hình Deploy cho domain: {args.domain}")
+        else:
+            config[args.domain].append(new_entry)
+            log_info(f"Đã thêm cấu hình Deploy mới cho domain: {args.domain}")
+    else:
+        config[args.domain] = [new_entry]
+        log_info(f"Đã tạo cấu hình Deploy đầu tiên cho domain: {args.domain}")
     save_config(config)
 
     log_info(f"Đã lưu cấu hình Deploy cho domain: {args.domain}")
@@ -266,25 +291,33 @@ def cmd_deploy_push(args):
     
     print("\\n" + "="*64)
     print(" HƯỚNG DẪN CÀI ĐẶT GITHUB WEBHOOK & DEPLOY KEY")
-    print("="*64)
-    print("1. Copy toàn bộ Public Key (ở trên) và thêm vào phần:")
-    print("   [Tên Repo của bạn] > Settings > Deploy Keys > Add deploy key")
-    print("2. Thêm Webhook URL sau vào phần:")
-    print("   [Tên Repo của bạn] > Settings > Webhooks > Add webhook")
-    print(f"   - Payload URL: https://{args.domain}/wp-json/wpmme/v1/deploy")
-    print("   - Content type: application/json")
-    print("="*64 + "\\n")
-    
-    log_info(f"Để chạy thử deploy lần đầu thủ công, hãy gõ lệnh: mme deploy pull {args.domain}")
-
-def cmd_deploy_edit(args):
+    pridef cmd_deploy_edit(args):
     config = load_config()
     if args.domain not in config:
         log_error(f"Domain {args.domain} chưa có cấu hình deploy. Vui lòng dùng lệnh 'mme deploy push' trước.")
         return
         
-    old_conf = config[args.domain]
-    print(f"\\n--- Sửa cấu hình Git Auto Deploy cho domain: {args.domain} ---")
+    conf_list = config[args.domain]
+    if isinstance(conf_list, dict):
+        conf_list = [conf_list]
+        
+    idx = 0
+    if len(conf_list) > 1:
+        print(f"\nDomain \033[96m{args.domain}\033[0m đang có {len(conf_list)} cấu hình:")
+        for i, conf in enumerate(conf_list):
+            print(f"  [{i+1}] Repo: {conf.get('repo', '')} -> Path: {conf.get('path', 'htdocs')}")
+        while True:
+            try:
+                choice = int(input(f"Nhập số thứ tự cấu hình muốn sửa (1-{len(conf_list)}): ").strip())
+                if 1 <= choice <= len(conf_list):
+                    idx = choice - 1
+                    break
+            except:
+                pass
+                
+    old_conf = conf_list[idx]
+    
+    print(f"\n--- Sửa cấu hình Git Auto Deploy cho domain: {args.domain} ---")
     print("Nhấn Enter nếu bạn muốn giữ nguyên giá trị cũ.")
     
     repo = input(f"1. Git Repo URL [{old_conf.get('repo')}]: ").strip()
@@ -293,12 +326,39 @@ def cmd_deploy_edit(args):
     branch = input(f"2. Branch [{old_conf.get('branch')}]: ").strip()
     if not branch: branch = old_conf.get('branch', '')
     
-    path = input(f"3. Path [{old_conf.get('path')}]: ").strip()
-    if not path: path = old_conf.get('path', '')
+    old_path = old_conf.get('path', '')
     
+    print(f"3. Chọn Loại Code Mới (Nhấn Enter để giữ nguyên: \033[36m{old_path if old_path else 'Toàn bộ mã nguồn'}\033[0m):")
+    print("   [1] Toàn bộ mã nguồn (Full Source)")
+    print("   [2] Theme WordPress")
+    print("   [3] Plugin WordPress")
+    print("   [4] Tùy chỉnh đường dẫn riêng (Custom path)")
+    type_choice = input("   -> Chọn (1/2/3/4) [Nhấn Enter bỏ qua]: ").strip()
+    
+    if type_choice == "1":
+        path = ""
+    elif type_choice == "2":
+        repo_clean = repo.rstrip("/")
+        repo_name = repo_clean.split("/")[-1].replace(".git", "") if repo_clean else ""
+        theme_input = input(f"   -> Nhập tên thư mục Theme [Mặc định: {repo_name}]: ").strip()
+        theme_name = theme_input if theme_input else repo_name
+        path = f"wp-content/themes/{theme_name}"
+        print(f"   => Đã cấu hình đường dẫn Theme: \033[96m{path}\033[0m")
+    elif type_choice == "3":
+        repo_clean = repo.rstrip("/")
+        repo_name = repo_clean.split("/")[-1].replace(".git", "") if repo_clean else ""
+        plugin_input = input(f"   -> Nhập tên thư mục Plugin [Mặc định: {repo_name}]: ").strip()
+        plugin_name = plugin_input if plugin_input else repo_name
+        path = f"wp-content/plugins/{plugin_name}"
+        print(f"   => Đã cấu hình đường dẫn Plugin: \033[96m{path}\033[0m")
+    elif type_choice == "4":
+        path_input = input(f"   -> Nhập đường dẫn con lưu code (Ví dụ: app/frontend): ").strip()
+        path = path_input
+    else:
+        path = old_path
+        
     build = input(f"4. Build Command [{old_conf.get('build')}]: ").strip()
     if not build and old_conf.get('build'):
-        # Để xóa build command cũ, có thể hướng dẫn nhập 'none'
         build = old_conf.get('build', '')
         
     import re
@@ -311,12 +371,14 @@ def cmd_deploy_edit(args):
         if path.startswith("htdocs/"): path = path[7:]
         path = path.strip("/")
         
-    config[args.domain] = {
+    conf_list[idx] = {
         "repo": repo,
         "branch": branch,
         "path": path,
         "build": build
     }
+    
+    config[args.domain] = conf_list
     save_config(config)
     log_info(f"Đã cập nhật cấu hình Deploy cho domain: {args.domain}")
     ensure_ssh_key()
@@ -375,9 +437,10 @@ def cmd_deploy_list(args):
     print("\n\033[1;93m DANH SÁCH CẤU HÌNH GIT AUTO DEPLOY\033[0m")
     print("\033[96m" + "="*60 + "\033[0m")
     
-    for domain, conf in config.items():
-        repo = conf.get('repo', '')
-        
+    for domain, conf_list in config.items():
+        if isinstance(conf_list, dict):
+            conf_list = [conf_list]
+            
         # 2. Kiểm tra trạng thái Webhook của plugin WPMMe
         webhook_status = "\033[91m❌ LỖI (Chưa cài/Kích hoạt WPMMe)\033[0m"
         curl_cmd = ["curl", "-L", "-X", "POST", "-s", "-o", "/dev/null", "-w", "%{http_code}", f"https://{domain}/wp-json/wpmme/v1/deploy"]
@@ -409,38 +472,46 @@ def cmd_deploy_list(args):
             webhook_status += f"\n           \033[93m👉 Payload URL: \033[1;36mhttps://{domain}/wp-json/wpmme/v1/deploy\033[0m"
             
         print(f"- Domain:  \033[1;96m{domain}\033[0m")
-        print(f"  Repo:    {repo}")
-        if conf.get('branch'):
-            print(f"  Branch:  {conf.get('branch')}")
-            
-        path_val = conf.get('path', '')
-        if path_val:
-            path_status = path_val
-            full_path = f"/var/www/{domain}/htdocs/{path_val}"
-            
-            if path_val.startswith("wp-content/themes/"):
-                try:
-                    active_theme_res = subprocess.run(
-                        ["wp", "theme", "list", "--status=active", "--field=name", f"--path=/var/www/{domain}/htdocs", "--allow-root"],
-                        capture_output=True, text=True, timeout=5
-                    )
-                    active_theme = active_theme_res.stdout.strip()
-                    theme_folder = path_val.replace("wp-content/themes/", "").strip("/")
-                    if active_theme and active_theme != theme_folder:
-                        path_status += f"\n           \033[93m⚠️ CẢNH BÁO: Đây KHÔNG PHẢI là theme đang kích hoạt ({active_theme}). Nếu cấu hình sai, gõ 'mme deploy edit {domain}' để sửa.\033[0m"
-                except:
-                    pass
-            elif path_val.startswith("wp-content/plugins/"):
-                if not os.path.exists(full_path):
-                    path_status += f"\n           \033[93m⚠️ CẢNH BÁO: Thư mục plugin này chưa tồn tại. Code đẩy về sẽ tạo thư mục mới nhưng plugin có thể chưa được kích hoạt.\033[0m"
-            else:
-                if not os.path.exists(full_path):
-                    path_status += f"\n           \033[93m⚠️ CẢNH BÁO: Đường dẫn này không tồn tại trên máy chủ.\033[0m"
-                    
-            print(f"  Path:    {path_status}")
-        if conf.get('build'):
-            print(f"  Build:   {conf.get('build')}")
         print(f"  Webhook: {webhook_status}")
+        
+        for idx, conf in enumerate(conf_list):
+            prefix = "  "
+            if len(conf_list) > 1:
+                print(f"  [{idx+1}] Repo: {conf.get('repo', '')}")
+                prefix = "      "
+            else:
+                print(f"  Repo:    {conf.get('repo', '')}")
+                
+            if conf.get('branch'):
+                print(f"{prefix}Branch:  {conf.get('branch')}")
+                
+            path_val = conf.get('path', '')
+            if path_val:
+                path_status = path_val
+                full_path = f"/var/www/{domain}/htdocs/{path_val}"
+                
+                if path_val.startswith("wp-content/themes/"):
+                    try:
+                        active_theme_res = subprocess.run(
+                            ["wp", "theme", "list", "--status=active", "--field=name", f"--path=/var/www/{domain}/htdocs", "--allow-root"],
+                            capture_output=True, text=True, timeout=5
+                        )
+                        active_theme = active_theme_res.stdout.strip()
+                        theme_folder = path_val.replace("wp-content/themes/", "").strip("/")
+                        if active_theme and active_theme != theme_folder:
+                            path_status += f"\n{prefix}     \033[93m⚠️ CẢNH BÁO: Đây KHÔNG PHẢI là theme đang kích hoạt ({active_theme}). Nếu cấu hình sai, gõ 'mme deploy edit {domain}' để sửa.\033[0m"
+                    except:
+                        pass
+                elif path_val.startswith("wp-content/plugins/"):
+                    if not os.path.exists(full_path):
+                        path_status += f"\n{prefix}     \033[93m⚠️ CẢNH BÁO: Thư mục plugin này chưa tồn tại. Code đẩy về sẽ tạo thư mục mới nhưng plugin có thể chưa được kích hoạt.\033[0m"
+                else:
+                    if not os.path.exists(full_path):
+                        path_status += f"\n{prefix}     \033[93m⚠️ CẢNH BÁO: Đường dẫn này không tồn tại trên máy chủ.\033[0m"
+                        
+                print(f"{prefix}Path:    {path_status}")
+            if conf.get('build'):
+                print(f"{prefix}Build:   {conf.get('build')}")
         print("\033[90m" + "-" * 60 + "\033[0m")
 
 def run_daemon(action, domain):
