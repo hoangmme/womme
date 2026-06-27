@@ -385,7 +385,8 @@ def cmd_deploy_list(args):
             if last_webhook:
                 webhook_status = f"\033[92m✅ OK\033[0m{last_webhook}"
             else:
-                webhook_status = "\033[93m⚠️ Cổng đã mở (Chưa nhận được tín hiệu thực tế từ Github, vui lòng kiểm tra lại Payload URL)\033[0m"
+                webhook_status = "\033[93m⚠️ Cổng đã mở (Chưa nhận được tín hiệu thực tế từ Github)\033[0m"
+                webhook_status += f"\n           \033[93m👉 Payload URL cần cấu hình: \033[1;36mhttps://{domain}/wp-json/wpmme/v1/deploy\033[0m"
         else:
             webhook_status += f"\n           \033[93m👉 Payload URL: \033[1;36mhttps://{domain}/wp-json/wpmme/v1/deploy\033[0m"
             
