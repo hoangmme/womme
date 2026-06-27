@@ -209,11 +209,15 @@ def cmd_deploy_push(args):
                 path = f"wp-content/themes/{active_theme}"
                 print(f"   => Đã tự phát hiện Theme đang dùng và cấu hình: \033[96m{path}\033[0m")
             else:
-                path = f"wp-content/themes/{repo_name}"
-                print(f"   => Đã tự cấu hình đường dẫn Theme theo tên repo: \033[96m{path}\033[0m")
+                theme_input = input(f"   -> (Không tự nhận diện được) Nhập tên thư mục Theme [Mặc định: {repo_name}]: ").strip()
+                theme_name = theme_input if theme_input else repo_name
+                path = f"wp-content/themes/{theme_name}"
+                print(f"   => Đã cấu hình đường dẫn Theme: \033[96m{path}\033[0m")
         elif type_choice == "3":
-            path = f"wp-content/plugins/{repo_name}"
-            print(f"   => Đã tự cấu hình đường dẫn Plugin: {path}")
+            plugin_input = input(f"   -> Nhập tên thư mục Plugin [Mặc định: {repo_name}]: ").strip()
+            plugin_name = plugin_input if plugin_input else repo_name
+            path = f"wp-content/plugins/{plugin_name}"
+            print(f"   => Đã cấu hình đường dẫn Plugin: \033[96m{path}\033[0m")
         elif type_choice == "4":
             path_input = input(f"   -> Nhập đường dẫn con lưu code (Ví dụ: app/frontend): ").strip()
             path = path_input
