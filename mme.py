@@ -206,29 +206,19 @@ def cmd_deploy_push(args):
         repo_clean = repo.rstrip("/")
         repo_name = repo_clean.split("/")[-1].replace(".git", "") if repo_clean else ""
         if type_choice == "2":
-            # Cố gắng lấy tên theme đang được kích hoạt trên WordPress
-            try:
-                active_theme_res = subprocess.run(
-                    ["wp", "theme", "list", "--status=active", "--field=name", f"--path=/var/www/{args.domain}/htdocs", "--allow-root"],
-                    capture_output=True, text=True, timeout=5
-                )
-                active_theme = active_theme_res.stdout.strip()
-            except:
-                active_theme = ""
-                
-            if active_theme:
-                path = f"wp-content/themes/{active_theme}"
-                print(f"   => Đã tự phát hiện Theme đang dùng và cấu hình: \033[96m{path}\033[0m")
-            else:
-                theme_input = input(f"   -> (Không tự nhận diện được) Nhập tên thư mục Theme [Mặc định: {repo_name}]: ").strip()
-                theme_name = theme_input if theme_input else repo_name
-                path = f"wp-content/themes/{theme_name}"
-                print(f"   => Đã cấu hình đường dẫn Theme: \033[96m{path}\033[0m")
+            while True:
+                theme_name = input("   -> Nhập chính xác tên thư mục Theme: ").strip()
+                if theme_name:
+                    path = f"wp-content/themes/{theme_name}"
+                    print(f"   => Đã cấu hình đường dẫn Theme: \033[96m{path}\033[0m")
+                    break
         elif type_choice == "3":
-            plugin_input = input(f"   -> Nhập tên thư mục Plugin [Mặc định: {repo_name}]: ").strip()
-            plugin_name = plugin_input if plugin_input else repo_name
-            path = f"wp-content/plugins/{plugin_name}"
-            print(f"   => Đã cấu hình đường dẫn Plugin: \033[96m{path}\033[0m")
+            while True:
+                plugin_name = input("   -> Nhập chính xác tên thư mục Plugin: ").strip()
+                if plugin_name:
+                    path = f"wp-content/plugins/{plugin_name}"
+                    print(f"   => Đã cấu hình đường dẫn Plugin: \033[96m{path}\033[0m")
+                    break
         elif type_choice == "4":
             path_input = input(f"   -> Nhập đường dẫn con lưu code (Ví dụ: app/frontend): ").strip()
             path = path_input
@@ -349,19 +339,19 @@ def cmd_deploy_edit(args):
     if type_choice == "1":
         path = ""
     elif type_choice == "2":
-        repo_clean = repo.rstrip("/")
-        repo_name = repo_clean.split("/")[-1].replace(".git", "") if repo_clean else ""
-        theme_input = input(f"   -> Nhập tên thư mục Theme [Mặc định: {repo_name}]: ").strip()
-        theme_name = theme_input if theme_input else repo_name
-        path = f"wp-content/themes/{theme_name}"
-        print(f"   => Đã cấu hình đường dẫn Theme: \033[96m{path}\033[0m")
+        while True:
+            theme_name = input("   -> Nhập chính xác tên thư mục Theme: ").strip()
+            if theme_name:
+                path = f"wp-content/themes/{theme_name}"
+                print(f"   => Đã cấu hình đường dẫn Theme: \033[96m{path}\033[0m")
+                break
     elif type_choice == "3":
-        repo_clean = repo.rstrip("/")
-        repo_name = repo_clean.split("/")[-1].replace(".git", "") if repo_clean else ""
-        plugin_input = input(f"   -> Nhập tên thư mục Plugin [Mặc định: {repo_name}]: ").strip()
-        plugin_name = plugin_input if plugin_input else repo_name
-        path = f"wp-content/plugins/{plugin_name}"
-        print(f"   => Đã cấu hình đường dẫn Plugin: \033[96m{path}\033[0m")
+        while True:
+            plugin_name = input("   -> Nhập chính xác tên thư mục Plugin: ").strip()
+            if plugin_name:
+                path = f"wp-content/plugins/{plugin_name}"
+                print(f"   => Đã cấu hình đường dẫn Plugin: \033[96m{path}\033[0m")
+                break
     elif type_choice == "4":
         path_input = input(f"   -> Nhập đường dẫn con lưu code (Ví dụ: app/frontend): ").strip()
         path = path_input
@@ -1011,6 +1001,9 @@ def cmd_wpmme(args):
             subprocess.run(["chown", "-R", "www-data:www-data", plugin_dir])
             subprocess.run(["find", plugin_dir, "-type", "d", "-exec", "chmod", "755", "{}", "+"])
             subprocess.run(["find", plugin_dir, "-type", "f", "-exec", "chmod", "644", "{}", "+"])
+            
+        log_info("Đang xóa cache để áp dụng thay đổi...")
+        subprocess.run(["wo", "clean", "--all"], capture_output=True)
     else:
         log_error(f"Lỗi khi cài đặt plugin:\\n{result.stderr}")
 
@@ -1047,6 +1040,9 @@ def cmd_thememme(args):
             subprocess.run(["chown", "-R", "www-data:www-data", theme_dir])
             subprocess.run(["find", theme_dir, "-type", "d", "-exec", "chmod", "755", "{}", "+"])
             subprocess.run(["find", theme_dir, "-type", "f", "-exec", "chmod", "644", "{}", "+"])
+            
+        log_info("Đang xóa cache để áp dụng thay đổi...")
+        subprocess.run(["wo", "clean", "--all"], capture_output=True)
     else:
         log_error(f"Lỗi khi cài đặt theme:\\n{result.stderr}")
 
@@ -1083,6 +1079,9 @@ def cmd_mmeform(args):
             subprocess.run(["chown", "-R", "www-data:www-data", plugin_dir])
             subprocess.run(["find", plugin_dir, "-type", "d", "-exec", "chmod", "755", "{}", "+"])
             subprocess.run(["find", plugin_dir, "-type", "f", "-exec", "chmod", "644", "{}", "+"])
+            
+        log_info("Đang xóa cache để áp dụng thay đổi...")
+        subprocess.run(["wo", "clean", "--all"], capture_output=True)
     else:
         log_error(f"Lỗi khi cài đặt plugin:\\n{result.stderr}")
 
