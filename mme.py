@@ -1234,9 +1234,9 @@ def cmd_site_migrate(args):
         pass
     
     print(f"   -> Table prefix ở nguồn: {source_prefix}")
-    # Update target table_prefix using sed
-    sed_cmd = f"sed -i -E \\\"s/\\\\\\$table_prefix\\\\s*=\\\s*['\\\"][^'\\\"]+['\\\"];/\\$table_prefix = '{source_prefix}';/g\\\" /var/www/{new_domain}/wp-config.php"
-    subprocess.run(ssh_cmd_base + [sed_cmd])
+    # Update target table_prefix using wp-cli
+    set_prefix_cmd = f"cd {target_wp_root} && wp config set table_prefix {source_prefix} --type=variable --allow-root"
+    subprocess.run(ssh_cmd_base + [set_prefix_cmd])
     
     # 9. Database stream gzip
     print("\n[8] Đang chuyển Database bằng luồng nén GZIP...")
