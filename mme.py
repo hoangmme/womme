@@ -1073,9 +1073,7 @@ CUSTOM_HELP = """
  \033[96mmme site clone <old> <new>\033[0m   (Nhân bản website)
  \033[96mmme site rename <old> <new>\033[0m  (Đổi tên miền website)
  \033[96mmme db\033[0m                       (Sửa cấu hình MySQL/MariaDB)
- \033[96mmme site wpmme <domain>\033[0m      (Cài & kích hoạt plugin WPMMe)
- \033[96mmme site thememme <domain>\033[0m   (Cài & kích hoạt theme WPMMe)
- \033[96mmme site mmeform <domain>\033[0m    (Cài & kích hoạt plugin MMeForm)
+ \033[96mmme core\033[0m                       (Cài WPMMe & MMeForm cho tất cả web)
  \033[96mmme update\033[0m                   (Cập nhật MMe CLI lên bản mới nhất)
  
  \033[90mGõ `mme <lệnh> --help` để xem chi tiết cách dùng của một nhóm lệnh.\033[0m
