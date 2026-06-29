@@ -1465,7 +1465,7 @@ def cmd_copy(args):
     dest_dir = args.dest
     
     if not os.path.exists(source_dir):
-        log_error(f"Thư mục nguồn {source_dir} không tồn tại!")
+        log_error(f"Đường dẫn nguồn {source_dir} không tồn tại!")
         return
         
     print("\n" + "="*64)
@@ -1516,18 +1516,27 @@ def cmd_copy(args):
         return
 
     log_info(f"Đang bắt đầu chuyển dữ liệu (Tốc độ phụ thuộc vào mạng)...")
+    
+    # Xử lý phân biệt file và thư mục
+    rsync_source = source_dir
+    if os.path.isdir(source_dir):
+        rsync_source += "/" # Chỉ copy nội dung, không tạo thêm thư mục cha lồng nhau
+        
     rsync_cmd = [
         "rsync", "-avz", "--progress",
         "-e", f"ssh -p {port} -o StrictHostKeyChecking=no -i /root/.ssh/id_ed25519",
-        source_dir + "/", # Chỉ copy nội dung, không tạo thêm thư mục cha lồng nhau
+        rsync_source,
         f"{user}@{ip}:{dest_dir}"
     ]
     
     try:
-        subprocess.run(rsync_cmd)
-        log_info("✅ Quá trình copy đã hoàn tất xuất sắc!")
+        res = subprocess.run(rsync_cmd)
+        if res.returncode == 0:
+            log_info("✅ Quá trình copy đã hoàn tất xuất sắc!")
+        else:
+            log_error(f"Quá trình copy bị lỗi (Mã lỗi rsync: {res.returncode}). Vui lòng kiểm tra lại log bên trên.")
     except Exception as e:
-        log_error(f"Quá trình copy bị lỗi: {str(e)}")
+        log_error(f"Lỗi hệ thống khi chạy rsync: {str(e)}")
 
 def main():
     if len(sys.argv) == 1 or (len(sys.argv) == 2 and sys.argv[1] in ["-h", "--help"]):
