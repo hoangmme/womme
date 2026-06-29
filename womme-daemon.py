@@ -157,13 +157,17 @@ def process_deploy(domain, config):
 # ---------------------------------------------------------
 class WebhookHandler(BaseHTTPRequestHandler):
     def do_POST(self):
-        # /hooks/<domain>
-        if not self.path.startswith("/hooks/"):
+        domain = None
+        if self.path.startswith("/hooks/"):
+            domain = self.path.split("/hooks/")[-1].strip("/")
+        elif self.path.startswith("/mme-webhook"):
+            domain = self.headers.get("X-MMe-Domain")
+
+        if not domain:
             self.send_response(404)
             self.end_headers()
             return
             
-        domain = self.path.split("/hooks/")[-1].strip("/")
         config_data = load_config().get(domain)
         
         if not config_data:

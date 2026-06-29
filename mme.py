@@ -171,7 +171,8 @@ def setup_nginx_webhook(domain):
         webhook_conf = f"{nginx_conf_dir}/mme-webhook.conf"
         with open(webhook_conf, "w") as f:
             f.write(f"""location /mme-webhook {{
-    proxy_pass http://127.0.0.1:8989/hooks/{domain};
+    proxy_pass http://127.0.0.1:8989;
+    proxy_set_header X-MMe-Domain $host;
     proxy_set_header Host $host;
     proxy_set_header X-Real-IP $remote_addr;
     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
