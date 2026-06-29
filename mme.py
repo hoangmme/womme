@@ -1317,8 +1317,7 @@ def cmd_core(args):
             print(f"[{domain}] Bỏ qua vì không phải mã nguồn WordPress.")
             continue
             
-        print(f"
---- ĐANG XỬ LÝ: {domain} ---")
+        print(f"\\n--- ĐANG XỬ LÝ: {domain} ---")
         
         # Cài WPMMe
         print(f"[{domain}] Đang cài plugin WPMMe...")
@@ -1350,8 +1349,7 @@ def cmd_core(args):
         print(f"[{domain}] ✅ Hoàn tất.")
         success_count += 1
         
-    print("
-" + "="*50)
+    print("\\n" + "="*50)
     log_info(f"Đã xử lý xong {success_count} website WordPress.")
     
     log_info("Đang dọn dẹp cache toàn máy chủ (wo clean --all)...")
