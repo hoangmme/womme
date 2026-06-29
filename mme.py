@@ -200,6 +200,19 @@ def cmd_role(args):
     
     log_info("Hoàn tất cấp quyền!")
 
+
+def validate_paths(path_str):
+    if not path_str: return []
+    paths = [p.strip() for p in path_str.split(',')]
+    valid_paths = []
+    for p in paths:
+        if not p: continue
+        if p.startswith("/") or ".." in p:
+            log_error(f"Đường dẫn không hợp lệ (không được dùng tuyệt đối hoặc chứa '../'): {p}")
+            continue
+        valid_paths.append(p)
+    return valid_paths
+
 def cmd_deploy_push(args):
     repo = args.repo
     branch = args.branch
@@ -248,6 +261,22 @@ def cmd_deploy_push(args):
         build_input = input(f"4. Nhập lệnh build - ví dụ: npm install (Nhấn Enter nếu không cần): ").strip()
         if build_input:
             build = build_input
+            
+        shared_files_input = input("5. Shared Files (Các file giữ lại vĩnh viễn, cách nhau dấu phẩy): ").strip()
+        shared_files = validate_paths(shared_files_input)
+        
+        shared_dirs_input = input("6. Shared Dirs (Các thư mục giữ lại vĩnh viễn, cách nhau dấu phẩy): ").strip()
+        shared_dirs = validate_paths(shared_dirs_input)
+        
+        health_check = input("7. Health Check Path (Nhấn Enter bỏ qua, hoặc nhập ví dụ: /api/health): ").strip()
+        if health_check and not health_check.startswith("/"): health_check = "/" + health_check
+        
+        keep_releases = input("8. Số lượng release giữ lại (Keep Releases) [Mặc định 5]: ").strip()
+        try:
+            keep_releases = int(keep_releases) if keep_releases else 5
+        except:
+            keep_releases = 5
+            
         print("-" * 50)
 
     import re
@@ -279,7 +308,11 @@ def cmd_deploy_push(args):
         "repo": repo,
         "branch": branch,
         "path": path,
-        "build": build
+        "build": build,
+        "shared_files": shared_files,
+        "shared_dirs": shared_dirs,
+        "health_check": health_check,
+        "keep_releases": keep_releases
     }
     
     if args.domain in config:
@@ -382,6 +415,33 @@ def cmd_deploy_edit(args):
     if not build and old_conf.get('build'):
         build = old_conf.get('build', '')
         
+    sf_default = ",".join(old_conf.get("shared_files", []))
+    sf_input = input(f"5. Shared Files (Các file giữ lại vĩnh viễn) [{sf_default}]: ").strip()
+    if not sf_input and "shared_files" in old_conf:
+        shared_files = old_conf["shared_files"]
+    else:
+        shared_files = validate_paths(sf_input)
+        
+    sd_default = ",".join(old_conf.get("shared_dirs", []))
+    sd_input = input(f"6. Shared Dirs (Các thư mục giữ lại vĩnh viễn) [{sd_default}]: ").strip()
+    if not sd_input and "shared_dirs" in old_conf:
+        shared_dirs = old_conf["shared_dirs"]
+    else:
+        shared_dirs = validate_paths(sd_input)
+        
+    hc_default = old_conf.get("health_check", "")
+    health_check = input(f"7. Health Check Path [{hc_default}]: ").strip()
+    if not health_check: health_check = hc_default
+    if health_check and not health_check.startswith("/"): health_check = "/" + health_check
+    
+    kr_default = old_conf.get("keep_releases", 5)
+    keep_releases = input(f"8. Số lượng release giữ lại [{kr_default}]: ").strip()
+    if not keep_releases: keep_releases = kr_default
+    try:
+        keep_releases = int(keep_releases)
+    except:
+        keep_releases = 5
+        
     import re
     if repo.startswith("https://github.com/"): repo = repo.replace("https://github.com/", "git@github.com:")
     elif repo.startswith("https://gitlab.com/"): repo = repo.replace("https://gitlab.com/", "git@gitlab.com:")
@@ -396,7 +456,11 @@ def cmd_deploy_edit(args):
         "repo": repo,
         "branch": branch,
         "path": path,
-        "build": build
+        "build": build,
+        "shared_files": shared_files,
+        "shared_dirs": shared_dirs,
+        "health_check": health_check,
+        "keep_releases": keep_releases
     }
     
     config[args.domain] = conf_list
