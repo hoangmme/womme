@@ -170,7 +170,7 @@ def setup_nginx_webhook(domain):
     if os.path.exists(nginx_conf_dir):
         webhook_conf = f"{nginx_conf_dir}/mme-webhook.conf"
         with open(webhook_conf, "w") as f:
-            f.write(f"""location /mme-webhook {{
+            f.write(f"""location ^~ /mme-webhook {{
     proxy_pass http://127.0.0.1:8989;
     proxy_set_header X-MMe-Domain $host;
     proxy_set_header Host $host;
