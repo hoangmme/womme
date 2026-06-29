@@ -1241,7 +1241,7 @@ def cmd_site_migrate(args):
     # 9. Database stream gzip
     print("\n[8] Đang chuyển Database bằng luồng nén GZIP...")
     export_cmd = f"wp db export - --allow-root --path={wp_root} | gzip"
-    import_cmd = f"gunzip | cd {target_wp_root} && wp db import - --allow-root"
+    import_cmd = f"cd {target_wp_root} && gunzip | wp db import - --allow-root"
     ssh_full_cmd = f"ssh -i {ssh_key} -p {ssh_port} -o StrictHostKeyChecking=no {ssh_user}@{ssh_host} '{import_cmd}'"
     
     full_db_cmd = f"{export_cmd} | {ssh_full_cmd}"
