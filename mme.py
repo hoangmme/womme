@@ -1684,8 +1684,12 @@ def main():
     try:
         args = parser.parse_args()
         args.func(args)
+    except SystemExit:
+        sys.exit(1)
     except Exception as e:
-        parser.print_help()
+        import traceback
+        log_error(f"Lỗi thực thi lệnh: {e}")
+        traceback.print_exc()
         sys.exit(1)
 
 if __name__ == "__main__":
