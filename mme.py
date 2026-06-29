@@ -5,6 +5,7 @@ import subprocess
 import argparse
 import sys
 import pwd
+from datetime import datetime
 
 DEPLOY_CONFIG_FILE = "/etc/wo/mme-deploy.json"
 
