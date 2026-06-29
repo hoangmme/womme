@@ -156,6 +156,11 @@ def process_deploy(domain, config):
 # HTTP SERVER CHO WEBHOOK
 # ---------------------------------------------------------
 class WebhookHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.end_headers()
+        self.wfile.write(b"MMe Webhook is running. Please send POST requests from Github/Gitlab.")
+        
     def do_POST(self):
         domain = None
         if self.path.startswith("/hooks/"):
