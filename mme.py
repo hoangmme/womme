@@ -1209,6 +1209,8 @@ def cmd_site_migrate(args):
         "rsync", "-avz",
         "--exclude=wp-content/cache/",
         "--exclude=*.log",
+        "--exclude=wp-config.php",
+        "--exclude=.user.ini",
         "-e", f"ssh -i {ssh_key} -p {ssh_port} -o StrictHostKeyChecking=no",
         f"{wp_root}/",
         f"{ssh_user}@{ssh_host}:{target_wp_root}/"
