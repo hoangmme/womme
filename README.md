@@ -134,7 +134,20 @@ mme copy /var/www/domain.com/htdocs /var/www/newdomain.com/htdocs
 ```
 Hệ thống sẽ hướng dẫn bạn từng bước cách cấp quyền ở VPS mới và tự động chạy tiến trình copy siêu mượt mà.
 
-### 8. Cập nhật MMe CLI Tool (`update`)
+### 8. Đổi port SSH an toàn (`port`)
+Đổi port SSH từ 22 sang một port khác (vd: 2222) cực kỳ an toàn vì tool sẽ tự động cấu hình lại firewall UFW và SSH Service:
+```bash
+mme port 2222
+```
+
+### 9. Di chuyển website sang máy chủ khác (`migrate`)
+Lệnh này là một "CI/CD thu nhỏ" giúp bạn di chuyển toàn bộ website từ VPS cũ sang VPS mới cực kỳ an toàn (sử dụng gzip stream database để tiết kiệm dung lượng, tự động fix table_prefix):
+```bash
+mme site migrate old-domain.com new-domain.com
+```
+Làm theo các bước hiện ra trên màn hình để chuyển dữ liệu mà không lo bị ngắt kết nối hay lỗi phân quyền.
+
+### 10. Cập nhật MMe CLI Tool (`update`)
 Cập nhật công cụ `mme` trên server của bạn lên phiên bản mới nhất từ Github:
 ```bash
 mme update
