@@ -106,7 +106,7 @@ _mme_completion() {
                 ;;
             site)
                 case "$subcmd" in
-                    pause|start|lockon|lockoff|clone|rename|wpmme|thememme|mmeform)
+                    pause|start|lockon|lockoff|clone|rename|wpmme|thememme|mmeform|migrate)
                         COMPREPLY=( $(compgen -W "$domains" -- "$cur") )
                         ;;
                 esac
@@ -115,7 +115,7 @@ _mme_completion() {
         return 0
     fi
     
-    if [[ $cword -eq 4 && "$cmd" == "site" && "$subcmd" == "clone" ]]; then
+    if [[ $cword -eq 4 && "$cmd" == "site" && ( "$subcmd" == "clone" || "$subcmd" == "migrate" || "$subcmd" == "rename" ) ]]; then
         COMPREPLY=( $(compgen -W "$domains" -- "$cur") )
         return 0
     fi

@@ -1085,6 +1085,11 @@ def cmd_site_migrate(args):
     old_domain = args.old
     new_domain = args.new
     
+    # Kiểm tra tránh truyền nhầm đường dẫn (vd: /var/www/...) thay vì domain
+    if "/" in old_domain or "/" in new_domain:
+        log_error("Tên miền không hợp lệ! Vui lòng chỉ nhập tên miền (VD: old.com new.com). Không nhập đường dẫn thư mục.")
+        return
+        
     print(f"\n--- MIGRATE WEBSITE: {old_domain} -> {new_domain} ---")
     
     # 1. Source Detection
