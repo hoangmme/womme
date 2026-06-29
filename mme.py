@@ -165,6 +165,25 @@ def ensure_ssh_key():
 
 # ==================== COMMAND HANDLERS ====================
 
+def setup_nginx_webhook(domain):
+    nginx_conf_dir = f"/var/www/{domain}/conf/nginx"
+    if os.path.exists(nginx_conf_dir):
+        webhook_conf = f"{nginx_conf_dir}/mme-webhook.conf"
+        with open(webhook_conf, "w") as f:
+            f.write(f"""location /mme-webhook {{
+    proxy_pass http://127.0.0.1:8989/hooks/{domain};
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Hub-Signature-256 $http_x_hub_signature_256;
+    proxy_set_header X-GitHub-Event $http_x_github_event;
+    proxy_set_header X-GitHub-Delivery $http_x_github_delivery;
+    proxy_set_header Content-Type $http_content_type;
+}}
+""")
+        subprocess.run(["nginx", "-t"], capture_output=True)
+        subprocess.run(["systemctl", "reload", "nginx"], capture_output=True)
+
 def cmd_role(args):
     cwd = os.getcwd()
     log_info(f"Đang cấp lại quyền cho toàn bộ file và thư mục tại: {cwd}")
@@ -382,6 +401,10 @@ def cmd_deploy_edit(args):
     config[args.domain] = conf_list
     save_config(config)
     log_info(f"Đã cập nhật cấu hình Deploy cho domain: {args.domain}")
+    
+    # Thiết lập Nginx Webhook tự động
+    setup_nginx_webhook(args.domain)
+    
     ensure_ssh_key()
     
     print("\\n" + "="*64)
@@ -391,7 +414,7 @@ def cmd_deploy_edit(args):
     print("   [Tên Repo của bạn] > Settings > Deploy Keys > Add deploy key")
     print("2. Thêm Webhook URL sau vào phần:")
     print("   [Tên Repo của bạn] > Settings > Webhooks > Add webhook")
-    print(f"   - Payload URL: https://{args.domain}/wp-json/wpmme/v1/deploy")
+    print(f"   - Payload URL: https://{args.domain}/mme-webhook")
     print("   - Content type: application/json")
     print("="*64 + "\\n")
 
@@ -473,6 +496,21 @@ def cmd_deploy_list(args):
                     ssh_status = "\033[92m✅ OK\033[0m"
                 break
                 
+        # 2. Kiểm tra trạng thái Webhook
+        webhook_status = "\033[91m❌ LỖI (Webhook Endpoint không hoạt động)\033[0m"
+        # Test new Nginx endpoint first
+        curl_cmd_new = ["curl", "-L", "-X", "POST", "-s", "-o", "/dev/null", "-w", "%{http_code}", f"https://{domain}/mme-webhook"]
+        res_new = subprocess.run(curl_cmd_new, capture_output=True, text=True)
+        if res_new.stdout.strip() in ['200', '201']:
+            webhook_status = "\033[92m✅ OK\033[0m (Nginx Endpoint)"
+        else:
+            # Fallback test old WPMMe endpoint
+            curl_cmd_old = ["curl", "-L", "-X", "POST", "-s", "-o", "/dev/null", "-w", "%{http_code}", f"https://{domain}/wp-json/wpmme/v1/deploy"]
+            res_old = subprocess.run(curl_cmd_old, capture_output=True, text=True)
+            if res_old.stdout.strip() in ['200', '201']:
+                webhook_status = "\033[92m✅ OK\033[0m (WPMMe Endpoint)"
+                
+        # 3. Lấy thời gian nhận webhook gần nhất
     if "❌ LỖI" in ssh_status:
         try:
             with open("/root/.ssh/id_ed25519.pub", "r") as f:
@@ -494,10 +532,20 @@ def cmd_deploy_list(args):
         if isinstance(conf_list, dict):
             conf_list = [conf_list]
             
-        # 2. Kiểm tra trạng thái Webhook của plugin WPMMe
-        webhook_status = "\033[91m❌ LỖI (Chưa cài/Kích hoạt WPMMe)\033[0m"
-        curl_cmd = ["curl", "-L", "-X", "POST", "-s", "-o", "/dev/null", "-w", "%{http_code}", f"https://{domain}/wp-json/wpmme/v1/deploy"]
+        # 2. Kiểm tra trạng thái Webhook
+        webhook_status = "\033[91m❌ LỖI (Webhook Endpoint không hoạt động)\033[0m"
+        # Test new Nginx endpoint first
+        curl_cmd = ["curl", "-L", "-X", "POST", "-s", "-o", "/dev/null", "-w", "%{http_code}", f"https://{domain}/mme-webhook"]
         res = subprocess.run(curl_cmd, capture_output=True, text=True)
+        is_webhook_ok = res.stdout.strip() in ['200', '201']
+        endpoint_type = "Nginx"
+        
+        if not is_webhook_ok:
+            # Fallback test old WPMMe endpoint
+            curl_cmd = ["curl", "-L", "-X", "POST", "-s", "-o", "/dev/null", "-w", "%{http_code}", f"https://{domain}/wp-json/wpmme/v1/deploy"]
+            res = subprocess.run(curl_cmd, capture_output=True, text=True)
+            is_webhook_ok = res.stdout.strip() in ['200', '201']
+            endpoint_type = "WPMMe"
         # 3. Kiểm tra log để xem Github đã thực sự gọi Webhook bao giờ chưa & trạng thái Deploy
         last_webhook = ""
         deploy_status_msg = ""
@@ -536,16 +584,16 @@ def cmd_deploy_list(args):
             except:
                 pass
                 
-        if res.stdout.strip() in ["200", "201"]:
+        if is_webhook_ok:
             if last_webhook or deploy_status_msg:
-                webhook_status = f"\033[92m✅ OK\033[0m{last_webhook}{deploy_status_msg}"
+                webhook_status = f"\033[92m✅ OK\033[0m ({endpoint_type}){last_webhook}{deploy_status_msg}"
                 if "❌ LỖI WEBHOOK" in deploy_status_msg:
-                    webhook_status = f"\033[91m❌ LỖI ĐỒNG BỘ\033[0m{last_webhook}{deploy_status_msg}"
+                    webhook_status = f"\033[91m❌ LỖI ĐỒNG BỘ\033[0m ({endpoint_type}){last_webhook}{deploy_status_msg}"
             else:
-                webhook_status = "\033[93m⚠️ Cổng đã mở (Chưa nhận được tín hiệu thực tế từ Github)\033[0m"
-                webhook_status += f"\n           \033[93m👉 Payload URL cần cấu hình: \033[1;36mhttps://{domain}/wp-json/wpmme/v1/deploy\033[0m"
+                webhook_status = f"\033[93m⚠️ Cổng đã mở ({endpoint_type}) (Chưa nhận được tín hiệu thực tế từ Github)\033[0m"
+                webhook_status += f"\n           \033[93m👉 Payload URL cần cấu hình: \033[1;36mhttps://{domain}/mme-webhook\033[0m"
         else:
-            webhook_status += f"\n           \033[93m👉 Payload URL: \033[1;36mhttps://{domain}/wp-json/wpmme/v1/deploy\033[0m"
+            webhook_status += f"\n           \033[93m👉 Payload URL: \033[1;36mhttps://{domain}/mme-webhook\033[0m"
             
         print(f"- Domain:  \033[1;96m{domain}\033[0m")
         print(f"  Webhook: {webhook_status}")
