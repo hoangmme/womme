@@ -1133,12 +1133,14 @@ def cmd_site_migrate(args):
         return
         
     # 3. SSH Key Management
-    ssh_key = "/root/.ssh/mme_migrate"
-    if not os.path.exists(ssh_key):
-        print("   -> Đang tạo khóa SSH mới cho việc Migrate...")
-        subprocess.run(["ssh-keygen", "-t", "ed25519", "-f", ssh_key, "-N", ""], capture_output=True)
+    ensure_ssh_key()
+    ssh_key = "/root/.ssh/id_ed25519"
+    pub_key_path = f"{ssh_key}.pub"
+    if not os.path.exists(pub_key_path):
+        ssh_key = "/root/.ssh/id_rsa"
+        pub_key_path = f"{ssh_key}.pub"
         
-    with open(f"{ssh_key}.pub", "r") as f:
+    with open(pub_key_path, "r") as f:
         pub_key = f.read().strip()
         
     # 4. SSH Preflight Check
