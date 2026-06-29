@@ -1411,6 +1411,55 @@ def cmd_db(args):
     subprocess.run(["nano", "/etc/mysql/conf.d/my.cnf"])
     log_info("Ghi nhớ chạy lệnh `wo stack reload --mysql` hoặc `systemctl restart mariadb` để áp dụng cấu hình mới.")
 
+
+def cmd_port(args):
+    port = args.port
+    if not port.isdigit() or not (1 <= int(port) <= 65535):
+        log_error("Port không hợp lệ. Vui lòng nhập số từ 1 - 65535.")
+        return
+        
+    print(f"\n--- THAY ĐỔI PORT SSH SANG {port} ---")
+    
+    sshd_config = "/etc/ssh/sshd_config"
+    if not os.path.exists(sshd_config):
+        log_error(f"Không tìm thấy file cấu hình {sshd_config}")
+        return
+        
+    # Sửa cấu hình
+    log_info("Đang cập nhật /etc/ssh/sshd_config...")
+    with open(sshd_config, "r") as f:
+        lines = f.readlines()
+        
+    port_updated = False
+    for i, line in enumerate(lines):
+        if line.strip().startswith("Port ") or line.strip().startswith("#Port "):
+            lines[i] = f"Port {port}\n"
+            port_updated = True
+            
+    if not port_updated:
+        lines.append(f"\nPort {port}\n")
+        
+    with open(sshd_config, "w") as f:
+        f.writelines(lines)
+        
+    import subprocess
+    # Mở port UFW
+    log_info(f"Đang mở port {port}/tcp trên UFW firewall...")
+    subprocess.run(["ufw", "allow", f"{port}/tcp"], capture_output=True)
+    subprocess.run(["ufw", "reload"], capture_output=True)
+    
+    # Restart SSH
+    log_info("Đang khởi động lại dịch vụ SSH...")
+    subprocess.run(["systemctl", "restart", "ssh"], capture_output=True)
+    subprocess.run(["systemctl", "restart", "sshd"], capture_output=True)
+    
+    print("\n✅ Đã thay đổi port SSH thành công!")
+    print("\033[93m⚠️ QUAN TRỌNG: KHÔNG ĐƯỢC ĐÓNG TERMINAL NÀY!\033[0m")
+    print(f"1. Hãy mở một tab terminal MỚI và thử kết nối lại với port mới:")
+    print(f"   \033[96mssh -p {port} root@<IP_VPS_CỦA_BẠN>\033[0m")
+    print(f"2. NẾU BẠN VÀO ĐƯỢC THÀNH CÔNG ở tab mới, bạn có thể xóa port 22 cũ bằng lệnh:")
+    print(f"   \033[96mufw delete allow 22/tcp\033[0m")
+
 def cmd_copy(args):
     source_dir = args.source.rstrip("/")
     dest_dir = args.dest
@@ -1500,6 +1549,11 @@ def main():
     role_parser = subparsers.add_parser("role", help="Tự động cấp quyền 644/755/www-data cho thư mục hiện tại")
     role_parser.set_defaults(func=cmd_role)
     
+    # --- port ---
+    port_parser = subparsers.add_parser("port", help="Thay đổi port SSH của VPS")
+    port_parser.add_argument("port", help="Số port mới (VD: 2222)")
+    port_parser.set_defaults(func=cmd_port)
+
     # --- copy ---
     copy_parser = subparsers.add_parser("copy", help="Sao chép thư mục sang VPS khác qua rsync")
     copy_parser.add_argument("source", help="Đường dẫn thư mục gốc (VD: /var/www/abc)")
