@@ -1289,122 +1289,74 @@ def cmd_site_migrate(args):
     print("Vui lòng trỏ lại Domain DNS hoặc cấu hình hosts file trên máy cá nhân để kiểm tra website mới.")
 
 
-def cmd_wpmme(args):
-    domain = args.domain
-    site_dir = f"/var/www/{domain}"
-    if not os.path.exists(site_dir):
-        log_error(f"Site {domain} không tồn tại trong /var/www/")
+def cmd_core(args):
+    log_info("Đang cài đặt WPMMe và MMeForm cho tất cả các website trong /var/www/...")
+    
+    # Plugin URLs
+    wpmme_url = "https://github.com/hoangmme/wpmme/archive/refs/heads/main.zip"
+    mmeform_url = "https://github.com/hoangmme/mmeform/archive/refs/heads/main.zip"
+    
+    if not os.path.exists("/var/www"):
+        log_error("Không tìm thấy thư mục /var/www/")
         return
         
-    htdocs_dir = f"{site_dir}/htdocs"
-    if not os.path.exists(f"{htdocs_dir}/wp-config.php") and not os.path.exists(f"{site_dir}/wp-config.php"):
-        log_error(f"Site {domain} không phải là WordPress (không tìm thấy wp-config.php).")
+    ignored_dirs = ["html", "22222", "default"]
+    domains = [d for d in os.listdir("/var/www") if os.path.isdir(os.path.join("/var/www", d)) and d not in ignored_dirs]
+    
+    if not domains:
+        log_info("Không tìm thấy website nào trong /var/www/")
         return
-
-    log_info(f"Đang cài đặt và kích hoạt plugin WPMMe cho {domain}...")
-    
-    plugin_url = "https://github.com/hoangmme/wpmme/archive/refs/heads/main.zip"
-    cmd = [
-        "wp", "plugin", "install", plugin_url,
-        "--activate", "--force",
-        f"--path={htdocs_dir}",
-        "--allow-root"
-    ]
-    
-    result = subprocess.run(cmd, capture_output=True, text=True)
-    if result.returncode == 0:
-        log_info(f"Đã cài đặt và kích hoạt thành công plugin wpmme cho {domain}.")
         
-        # Tự động phân quyền
-        plugin_dir = f"{htdocs_dir}/wp-content/plugins/wpmme"
-        if os.path.exists(plugin_dir):
-            log_info("Đang tự động phân quyền (mme role) cho thư mục plugin...")
-            subprocess.run(["chown", "-R", "www-data:www-data", plugin_dir])
-            subprocess.run(["find", plugin_dir, "-type", "d", "-exec", "chmod", "755", "{}", "+"])
-            subprocess.run(["find", plugin_dir, "-type", "f", "-exec", "chmod", "644", "{}", "+"])
+    success_count = 0
+    
+    for domain in domains:
+        site_dir = f"/var/www/{domain}"
+        htdocs_dir = f"{site_dir}/htdocs"
+        
+        if not os.path.exists(f"{htdocs_dir}/wp-config.php") and not os.path.exists(f"{site_dir}/wp-config.php"):
+            print(f"[{domain}] Bỏ qua vì không phải mã nguồn WordPress.")
+            continue
             
-        log_info("Đang xóa cache để áp dụng thay đổi...")
-        subprocess.run(["wo", "clean", "--all"], capture_output=True)
-    else:
-        log_error(f"Lỗi khi cài đặt plugin:\\n{result.stderr}")
-
-def cmd_thememme(args):
-    domain = args.domain
-    site_dir = f"/var/www/{domain}"
-    if not os.path.exists(site_dir):
-        log_error(f"Site {domain} không tồn tại trong /var/www/")
-        return
+        print(f"
+--- ĐANG XỬ LÝ: {domain} ---")
         
-    htdocs_dir = f"{site_dir}/htdocs"
-    if not os.path.exists(f"{htdocs_dir}/wp-config.php") and not os.path.exists(f"{site_dir}/wp-config.php"):
-        log_error(f"Site {domain} không phải là WordPress (không tìm thấy wp-config.php).")
-        return
-
-    log_info(f"Đang cài đặt và kích hoạt theme WPMMe cho {domain}...")
-    
-    theme_url = "https://github.com/hoangmme/thememme/archive/refs/heads/main.zip"
-    cmd = [
-        "wp", "theme", "install", theme_url,
-        "--activate", "--force",
-        f"--path={htdocs_dir}",
-        "--allow-root"
-    ]
-    
-    result = subprocess.run(cmd, capture_output=True, text=True)
-    if result.returncode == 0:
-        log_info(f"Đã cài đặt và kích hoạt thành công theme thememme cho {domain}.")
-        
-        # Tự động phân quyền toàn bộ thư mục themes
-        theme_dir = f"{htdocs_dir}/wp-content/themes"
-        if os.path.exists(theme_dir):
-            log_info("Đang tự động phân quyền (mme role) cho thư mục themes...")
-            subprocess.run(["chown", "-R", "www-data:www-data", theme_dir])
-            subprocess.run(["find", theme_dir, "-type", "d", "-exec", "chmod", "755", "{}", "+"])
-            subprocess.run(["find", theme_dir, "-type", "f", "-exec", "chmod", "644", "{}", "+"])
+        # Cài WPMMe
+        print(f"[{domain}] Đang cài plugin WPMMe...")
+        res_wpmme = subprocess.run([
+            "wp", "plugin", "install", wpmme_url, "--activate", "--force",
+            f"--path={htdocs_dir}", "--allow-root"
+        ], capture_output=True, text=True)
+        if res_wpmme.returncode != 0:
+            print(f"[{domain}] ❌ Lỗi cài WPMMe: {res_wpmme.stderr.strip()}")
             
-        log_info("Đang xóa cache để áp dụng thay đổi...")
-        subprocess.run(["wo", "clean", "--all"], capture_output=True)
-    else:
-        log_error(f"Lỗi khi cài đặt theme:\\n{result.stderr}")
-
-def cmd_mmeform(args):
-    domain = args.domain
-    site_dir = f"/var/www/{domain}"
-    if not os.path.exists(site_dir):
-        log_error(f"Site {domain} không tồn tại trong /var/www/")
-        return
-        
-    htdocs_dir = f"{site_dir}/htdocs"
-    if not os.path.exists(f"{htdocs_dir}/wp-config.php") and not os.path.exists(f"{site_dir}/wp-config.php"):
-        log_error(f"Site {domain} không phải là WordPress (không tìm thấy wp-config.php).")
-        return
-
-    log_info(f"Đang cài đặt và kích hoạt plugin MMeForm cho {domain}...")
-    
-    plugin_url = "https://github.com/hoangmme/mmeform/archive/refs/heads/main.zip"
-    cmd = [
-        "wp", "plugin", "install", plugin_url,
-        "--activate", "--force",
-        f"--path={htdocs_dir}",
-        "--allow-root"
-    ]
-    
-    result = subprocess.run(cmd, capture_output=True, text=True)
-    if result.returncode == 0:
-        log_info(f"Đã cài đặt và kích hoạt thành công plugin mmeform cho {domain}.")
-        
-        # Tự động phân quyền
-        plugin_dir = f"{htdocs_dir}/wp-content/plugins/mmeform"
-        if os.path.exists(plugin_dir):
-            log_info("Đang tự động phân quyền (mme role) cho thư mục plugin...")
-            subprocess.run(["chown", "-R", "www-data:www-data", plugin_dir])
-            subprocess.run(["find", plugin_dir, "-type", "d", "-exec", "chmod", "755", "{}", "+"])
-            subprocess.run(["find", plugin_dir, "-type", "f", "-exec", "chmod", "644", "{}", "+"])
+        # Cài MMeForm
+        print(f"[{domain}] Đang cài plugin MMeForm...")
+        res_mmeform = subprocess.run([
+            "wp", "plugin", "install", mmeform_url, "--activate", "--force",
+            f"--path={htdocs_dir}", "--allow-root"
+        ], capture_output=True, text=True)
+        if res_mmeform.returncode != 0:
+            print(f"[{domain}] ❌ Lỗi cài MMeForm: {res_mmeform.stderr.strip()}")
             
-        log_info("Đang xóa cache để áp dụng thay đổi...")
-        subprocess.run(["wo", "clean", "--all"], capture_output=True)
-    else:
-        log_error(f"Lỗi khi cài đặt plugin:\\n{result.stderr}")
+        # Phân quyền
+        print(f"[{domain}] Đang phân quyền (mme role) cho các plugin...")
+        for p in ["wpmme", "mmeform"]:
+            p_dir = f"{htdocs_dir}/wp-content/plugins/{p}"
+            if os.path.exists(p_dir):
+                subprocess.run(["chown", "-R", "www-data:www-data", p_dir])
+                subprocess.run(["find", p_dir, "-type", "d", "-exec", "chmod", "755", "{}", "+"])
+                subprocess.run(["find", p_dir, "-type", "f", "-exec", "chmod", "644", "{}", "+"])
+                
+        print(f"[{domain}] ✅ Hoàn tất.")
+        success_count += 1
+        
+    print("
+" + "="*50)
+    log_info(f"Đã xử lý xong {success_count} website WordPress.")
+    
+    log_info("Đang dọn dẹp cache toàn máy chủ (wo clean --all)...")
+    subprocess.run(["wo", "clean", "--all"], capture_output=True)
+    log_info("Hoàn tất lệnh mme core!")
 
 def cmd_update(args):
     log_info("Đang cập nhật MMe CLI Tool lên phiên bản mới nhất từ GitHub...")
@@ -1557,6 +1509,10 @@ def main():
     subparsers = parser.add_subparsers(dest="command", required=True)
     
     # --- db ---
+    core_parser = subparsers.add_parser("core", help="Cài đặt WPMMe & MMeForm cho toàn bộ website")
+    core_parser.set_defaults(func=cmd_core)
+    
+    # --- db ---
     db_parser = subparsers.add_parser("db", help="Mở trình soạn thảo sửa cấu hình MySQL")
     db_parser.set_defaults(func=cmd_db)
     
@@ -1667,20 +1623,7 @@ def main():
     site_migrate.add_argument("new", help="Tên miền mới (VD: new.com)")
     site_migrate.set_defaults(func=cmd_site_migrate)
 
-    # site wpmme
-    site_wpmme = site_sub.add_parser("wpmme", help="Cài và kích hoạt plugin WPMMe")
-    site_wpmme.add_argument("domain", help="Tên miền (VD: mme.vn)")
-    site_wpmme.set_defaults(func=cmd_wpmme)
-
-    # site thememme
-    site_thememme = site_sub.add_parser("thememme", help="Cài và kích hoạt theme WPMMe")
-    site_thememme.add_argument("domain", help="Tên miền (VD: mme.vn)")
-    site_thememme.set_defaults(func=cmd_thememme)
     
-    # site mmeform
-    site_mmeform = site_sub.add_parser("mmeform", help="Cài và kích hoạt plugin MMeForm")
-    site_mmeform.add_argument("domain", help="Tên miền (VD: mme.vn)")
-    site_mmeform.set_defaults(func=cmd_mmeform)
     
     # Phân tích lệnh
     try:
