@@ -67,9 +67,9 @@ _mme_completion() {
         prev="${words[cword-1]}"
     }
 
-    local commands="deploy site role copy db update"
+    local commands="deploy site role copy db update port"
     local deploy_commands="push pull edit list rollback logs delete"
-    local site_commands="pause start lockon lockoff clone rename wpmme thememme mmeform"
+    local site_commands="pause start lockon lockoff clone rename wpmme thememme mmeform migrate"
     
     # Lấy danh sách tên miền từ /var/www (bỏ qua các thư mục hệ thống của WordOps)
     local domains=$(ls /var/www 2>/dev/null | grep -vE '^(html|22222|default)$')
