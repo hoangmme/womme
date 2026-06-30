@@ -1287,6 +1287,135 @@ def cmd_site_migrate(args):
     print("Vui lòng trỏ lại Domain DNS hoặc cấu hình hosts file trên máy cá nhân để kiểm tra website mới.")
 
 
+def cmd_site_webp(args):
+    domain = args.domain
+    quality = getattr(args, 'quality', 82)
+    
+    wp_path = f"/var/www/{domain}/htdocs"
+    if not os.path.exists(wp_path):
+        log_error(f"Thư mục website {wp_path} không tồn tại trong /var/www/!")
+        return
+        
+    print(f"\n--- BẮT ĐẦU CHUYỂN ĐỔI WEBP CHO WEBSITE: {domain} (Quality: {quality}) ---")
+    
+    # 1. Thử gọi lệnh WP-CLI của plugin MMe Core nếu đã cài đặt
+    res = subprocess.run(["wp", "mme", "webp", f"--quality={quality}", f"--path={wp_path}", "--allow-root"])
+    if res.returncode == 0:
+        return
+        
+    log_info("Không tìm thấy lệnh 'wp mme webp' (plugin chưa bật hoặc chưa cập nhật), đang chạy tiến trình chuyển đổi độc lập qua wp eval-file...")
+    
+    php_code = """<?php
+if (!function_exists('imagewebp')) {
+    WP_CLI::error("Thư viện GD/imagewebp chưa được bật trên PHP server này.");
+    return;
+}
+global $wpdb;
+$quality = """ + str(quality) + """;
+WP_CLI::log("Đang quét các ảnh JPEG/PNG trong Media Library...");
+$attachments = $wpdb->get_results("SELECT ID, guid FROM {$wpdb->posts} WHERE post_type = 'attachment' AND post_mime_type IN ('image/jpeg', 'image/png')");
+if (empty($attachments)) {
+    WP_CLI::success("Không tìm thấy ảnh JPEG/PNG nào cần chuyển đổi!");
+    return;
+}
+$total = count($attachments);
+WP_CLI::log("Tìm thấy {$total} ảnh. Bắt đầu nén sang WebP...");
+$progress = \\WP_CLI\\Utils\\make_progress_bar('Chuyển đổi WebP', $total);
+$converted_count = 0;
+$url_replacements = array();
+$upload_dir = wp_upload_dir();
+$base_dir = $upload_dir['basedir'];
+foreach ($attachments as $att) {
+    $file_path = get_attached_file($att->ID);
+    if (empty($file_path) || !file_exists($file_path)) {
+        $progress->tick();
+        continue;
+    }
+    $mime = get_post_mime_type($att->ID);
+    $img = null;
+    if ($mime === 'image/jpeg') $img = @imagecreatefromjpeg($file_path);
+    elseif ($mime === 'image/png') {
+        $img = @imagecreatefrompng($file_path);
+        if ($img) {
+            imagepalettetotruecolor($img);
+            imagealphablending($img, true);
+            imagesavealpha($img, true);
+        }
+    }
+    if (!$img) { $progress->tick(); continue; }
+    $webp_path = preg_replace('/\\.(jpg|jpeg|png)$/i', '.webp', $file_path);
+    if (imagewebp($img, $webp_path, $quality)) {
+        imagedestroy($img);
+        $new_rel = str_replace($base_dir . '/', '', $webp_path);
+        $old_basename = wp_basename($file_path);
+        $new_basename = wp_basename($webp_path);
+        if ($old_basename !== $new_basename) $url_replacements[$old_basename] = $new_basename;
+        @unlink($file_path);
+        $meta = wp_get_attachment_metadata($att->ID);
+        if (!empty($meta) && is_array($meta)) {
+            if (!empty($meta['file'])) $meta['file'] = preg_replace('/\\.(jpg|jpeg|png)$/i', '.webp', $meta['file']);
+            if (!empty($meta['sizes']) && is_array($meta['sizes'])) {
+                $dir_path = dirname($file_path);
+                foreach ($meta['sizes'] as $size => $sdata) {
+                    if (!empty($sdata['file'])) {
+                        $thumb_file = $dir_path . '/' . $sdata['file'];
+                        if (file_exists($thumb_file)) {
+                            $thumb_mime = isset($sdata['mime-type']) ? $sdata['mime-type'] : $mime;
+                            $t_img = null;
+                            if ($thumb_mime === 'image/jpeg' || preg_replace('/^.*\\./', '', $thumb_file) === 'jpg') $t_img = @imagecreatefromjpeg($thumb_file);
+                            elseif ($thumb_mime === 'image/png' || preg_replace('/^.*\\./', '', $thumb_file) === 'png') {
+                                $t_img = @imagecreatefrompng($thumb_file);
+                                if ($t_img) { imagepalettetotruecolor($t_img); imagealphablending($t_img, true); imagesavealpha($t_img, true); }
+                            }
+                            if ($t_img) {
+                                $t_webp = preg_replace('/\\.(jpg|jpeg|png)$/i', '.webp', $thumb_file);
+                                if (imagewebp($t_img, $t_webp, $quality)) {
+                                    imagedestroy($t_img);
+                                    @unlink($thumb_file);
+                                    $old_t_name = $sdata['file'];
+                                    $new_t_name = wp_basename($t_webp);
+                                    $meta['sizes'][$size]['file'] = $new_t_name;
+                                    $meta['sizes'][$size]['mime-type'] = 'image/webp';
+                                    if ($old_t_name !== $new_t_name) $url_replacements[$old_t_name] = $new_t_name;
+                                } else imagedestroy($t_img);
+                            }
+                        }
+                    }
+                }
+            }
+            wp_update_attachment_metadata($att->ID, $meta);
+        }
+        $new_guid = preg_replace('/\\.(jpg|jpeg|png)$/i', '.webp', $att->guid);
+        $wpdb->update($wpdb->posts, array('post_mime_type' => 'image/webp', 'guid' => $new_guid), array('ID' => $att->ID));
+        update_post_meta($att->ID, '_wp_attached_file', $new_rel);
+        $converted_count++;
+    } else imagedestroy($img);
+    $progress->tick();
+}
+$progress->finish();
+WP_CLI::success("Đã nén thành công {$converted_count}/{$total} ảnh sang định dạng WebP!");
+if (!empty($url_replacements)) {
+    WP_CLI::log("Đang đồng bộ link ảnh (Search & Replace) trong Database bài viết và Elementor...");
+    $sr_progress = \\WP_CLI\\Utils\\make_progress_bar('Đồng bộ link DB', count($url_replacements));
+    $target_tables = "{$wpdb->posts} {$wpdb->postmeta} {$wpdb->options}";
+    foreach ($url_replacements as $old_name => $new_name) {
+        try { \\WP_CLI::runcommand("search-replace '{$old_name}' '{$new_name}' {$target_tables} --quiet", array('return' => true)); } catch (\\Exception $e) {}
+        $sr_progress->tick();
+    }
+    $sr_progress->finish();
+    WP_CLI::success("Đã cập nhật toàn bộ link ảnh trong Database!");
+}
+"""
+    tmp_php = "/tmp/mme_convert_webp.php"
+    with open(tmp_php, "w") as f:
+        f.write(php_code)
+    try:
+        subprocess.run(["wp", "eval-file", tmp_php, f"--path={wp_path}", "--allow-root"])
+    finally:
+        if os.path.exists(tmp_php):
+            os.remove(tmp_php)
+
+
 def cmd_core(args):
     log_info("Đang cài đặt WPMMe và MMeForm cho tất cả các website trong /var/www/...")
     
@@ -1619,14 +1748,22 @@ def main():
     site_migrate.add_argument("new", help="Tên miền mới (VD: new.com)")
     site_migrate.set_defaults(func=cmd_site_migrate)
 
+    # site webp
+    site_webp = site_sub.add_parser("webp", help="Chuyển toàn bộ ảnh JPEG/PNG sang WebP và đồng bộ DB")
+    site_webp.add_argument("domain", help="Tên miền website")
+    site_webp.add_argument("--quality", type=int, default=82, help="Chất lượng nén WebP (1-100), mặc định 82")
+    site_webp.set_defaults(func=cmd_site_webp)
+
+
     
     
     # Phân tích lệnh
     try:
         args = parser.parse_args()
         args.func(args)
-    except SystemExit:
-        sys.exit(1)
+    except SystemExit as e:
+        sys.exit(e.code)
+
     except Exception as e:
         import traceback
         log_error(f"Lỗi thực thi lệnh: {e}")

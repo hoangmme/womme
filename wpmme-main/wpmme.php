@@ -1,9 +1,9 @@
 <?php
 /**
- * Plugin Name: WPMME
+ * Plugin Name: MMe Core
  * Plugin URI: https://mme.vn
  * Description: All-in-One Optimization & Security plugin by MMe.
- * Version: 1.0.0
+ * Version: 1.0.0 (Build 20260628.1505)
  * Author: Hoji
  * Author URI: https://mme.vn
  * Text Domain: wpmme
@@ -16,6 +16,7 @@ if (!defined('ABSPATH')) {
 }
 
 define('WPMME_VERSION', '1.0.0');
+define('WPMME_BUILD', '20260630.0235');
 define('WPMME_DIR', plugin_dir_path(__FILE__));
 define('WPMME_URL', plugin_dir_url(__FILE__));
 
@@ -33,10 +34,13 @@ require_once WPMME_DIR . 'inc/class-watermark.php';
 require_once WPMME_DIR . 'inc/class-comments.php';
 require_once WPMME_DIR . 'inc/class-login.php';
 require_once WPMME_DIR . 'inc/class-admin-bar.php';
+require_once WPMME_DIR . 'inc/class-admin-notices.php';
 require_once WPMME_DIR . 'inc/class-limit-login.php';
 require_once WPMME_DIR . 'inc/class-media-replace.php';
+require_once WPMME_DIR . 'inc/class-media-tabs.php';
 require_once WPMME_DIR . 'inc/class-updater.php';
 require_once WPMME_DIR . 'inc/class-deploy.php';
+require_once WPMME_DIR . 'inc/class-cli.php';
 
 // Initialize Plugin
 function wpmme_init() {
@@ -81,11 +85,19 @@ function wpmme_init() {
     if (!empty($options['admin_bar_clean'])) {
         new WPMME_Admin_Bar();
     }
+    
+    if (!empty($options['hide_notices'])) {
+        new WPMME_Admin_Notices();
+    }
     if (!empty($options['limit_login'])) {
         new WPMME_Limit_Login();
     }
     if (!empty($options['media_replace'])) {
         new WPMME_Media_Replace();
+    }
+    
+    if (!empty($options['media_tabs'])) {
+        new WPMME_Media_Tabs();
     }
     
     new WPMME_Updater();
@@ -133,7 +145,13 @@ function wpmme_get_default_options() {
         'watermark_size'       => 30,
         'watermark_margin'     => 10,
         'watermark_opacity'    => 80,
+        
+        // Media Tabs
+        'media_tabs'           => true,
+
+        // Security
         'disable_xmlrpc'       => true,
+        'limit_login_retries'  => 4,     
         'remove_version'       => true,
         'disable_rest_users'   => true,
         'disable_author'       => true,
@@ -144,6 +162,7 @@ function wpmme_get_default_options() {
         'login_slug_value'     => 'zogin',
         'media_replace'        => true,
         'admin_bar_clean'      => true,
+        'hide_notices'         => true,
         'limit_login'          => true,
         'limit_login_retries'  => 4,
     );
@@ -153,8 +172,8 @@ function wpmme_get_default_options() {
 add_action('admin_menu', 'wpmme_admin_menu');
 function wpmme_admin_menu() {
     add_menu_page(
-        'WPMME Settings',
-        'WPMME',
+        'MMe Core Settings',
+        'MMe Core',
         'manage_options',
         'wpmme-settings',
         'wpmme_settings_page',
