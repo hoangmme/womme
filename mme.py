@@ -1073,7 +1073,7 @@ CUSTOM_HELP = """
  \033[96mmme site clone <old> <new>\033[0m   (Nhân bản website)
  \033[96mmme site rename <old> <new>\033[0m  (Đổi tên miền website)
  \033[96mmme db\033[0m                       (Sửa cấu hình MySQL/MariaDB)
- \033[96mmme core\033[0m                       (Cài WPMMe & MMeForm cho tất cả web)
+ \033[96mmme core [domain]\033[0m              (Cài WPMMe & MMeForm cho 1 hoặc tất cả web)
  \033[96mmme update\033[0m                   (Cập nhật MMe CLI lên bản mới nhất)
  
  \033[90mGõ `mme <lệnh> --help` để xem chi tiết cách dùng của một nhóm lệnh.\033[0m
@@ -1417,18 +1417,23 @@ if (!empty($url_replacements)) {
 
 
 def cmd_core(args):
-    log_info("Đang cài đặt WPMMe và MMeForm cho tất cả các website trong /var/www/...")
+    target_domain = getattr(args, "domain", None)
+    
+    if target_domain:
+        log_info(f"Đang cài đặt WPMMe và MMeForm cho website {target_domain}...")
+        domains = [target_domain]
+    else:
+        log_info("Đang cài đặt WPMMe và MMeForm cho tất cả các website trong /var/www/...")
+        if not os.path.exists("/var/www"):
+            log_error("Không tìm thấy thư mục /var/www/")
+            return
+            
+        ignored_dirs = ["html", "22222", "default"]
+        domains = [d for d in os.listdir("/var/www") if os.path.isdir(os.path.join("/var/www", d)) and d not in ignored_dirs]
     
     # Plugin URLs
     wpmme_url = "https://github.com/hoangmme/wpmme/archive/refs/heads/main.zip"
     mmeform_url = "https://github.com/hoangmme/mmeform/archive/refs/heads/main.zip"
-    
-    if not os.path.exists("/var/www"):
-        log_error("Không tìm thấy thư mục /var/www/")
-        return
-        
-    ignored_dirs = ["html", "22222", "default"]
-    domains = [d for d in os.listdir("/var/www") if os.path.isdir(os.path.join("/var/www", d)) and d not in ignored_dirs]
     
     if not domains:
         log_info("Không tìm thấy website nào trong /var/www/")
@@ -1634,7 +1639,8 @@ def main():
     subparsers = parser.add_subparsers(dest="command", required=True)
     
     # --- db ---
-    core_parser = subparsers.add_parser("core", help="Cài đặt WPMMe & MMeForm cho toàn bộ website")
+    core_parser = subparsers.add_parser("core", help="Cài đặt WPMMe & MMeForm cho một hoặc toàn bộ website")
+    core_parser.add_argument("domain", nargs="?", help="Tên miền (VD: mme.vn) - Nếu để trống sẽ cài cho tất cả web")
     core_parser.set_defaults(func=cmd_core)
     
     # --- db ---
