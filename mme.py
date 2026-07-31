@@ -601,6 +601,11 @@ def cmd_deploy_list(args):
         print(f"- Domain:  \033[1;96m{domain}\033[0m")
         print(f"  Webhook: \033[1;36mhttps://{domain}/mme-webhook\033[0m")
         
+        # Self-heal Nginx webhook if missing
+        nginx_conf = f"/var/www/{domain}/conf/nginx/mme-webhook.conf"
+        if os.path.exists(f"/var/www/{domain}/conf/nginx") and not os.path.exists(nginx_conf):
+            setup_nginx_webhook(domain)
+            
         # Test webhook endpoint
         curl_cmd = ["curl", "-L", "-X", "POST", "-s", "-o", "/dev/null", "-w", "%{http_code}", f"https://{domain}/mme-webhook"]
         res = subprocess.run(curl_cmd, capture_output=True, text=True)
