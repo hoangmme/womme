@@ -48,7 +48,7 @@ def get_site_owner(domain):
     except:
         return "www-data"
 
-def process_deploy(domain, config):
+def process_deploy(domain, config, trigger_type="Thủ công (mme deploy pull)"):
     log_message(domain, "=== BẮT ĐẦU DEPLOY ===")
     
     lock_file = f"/tmp/womme_deploy_{domain}.lock"
@@ -114,6 +114,8 @@ def process_deploy(domain, config):
         # Lưu thông tin commit hiện tại để hiển thị cho lệnh mme deploy list
         run_cmd("git log -1 --format='%cd - %s' --date=relative > .mme_commit", cwd=new_release_dir)
         run_cmd("git rev-parse HEAD > .mme_hash", cwd=new_release_dir)
+        with open(f"{new_release_dir}/.mme_trigger", "w") as tf:
+            tf.write(trigger_type)
         
         run_cmd(f"rm -rf {new_release_dir}/.git")
 
@@ -380,7 +382,7 @@ class WebhookHandler(BaseHTTPRequestHandler):
         # Chạy deploy ngầm (fork)
         pid = os.fork()
         if pid == 0:
-            process_deploy(domain, matched_config)
+            process_deploy(domain, matched_config, trigger_type="Tự động (Webhook)")
             os._exit(0)
 
 def run_server(port=8989):
