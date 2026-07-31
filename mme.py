@@ -610,6 +610,37 @@ def cmd_deploy_list(args):
         else:
             print("           \033[91m❌ Trạng thái Webhook: LỖI (Không phản hồi, hãy kiểm tra Nginx)\033[0m")
         
+        # Đọc log để xem Webhook có thực sự được gọi gần đây không
+        last_webhook = ""
+        deploy_status_msg = ""
+        log_file = f"/var/log/womme/{domain}.log"
+        if os.path.exists(log_file):
+            try:
+                with open(log_file, "r") as f:
+                    lines = f.readlines()
+                    for line in reversed(lines):
+                        if not last_webhook and "⚡ Đã nhận Webhook thành công" in line:
+                            parts = line.split("]", 1)
+                            if len(parts) > 1:
+                                time_str = parts[0].strip("[")
+                                last_webhook = f"\033[90m(Gần nhất: {time_str})\033[0m"
+                                
+                        if not deploy_status_msg:
+                            if "=== DEPLOY THÀNH CÔNG ===" in line:
+                                deploy_status_msg = "\033[92mThành công\033[0m"
+                            elif "LỖI Clone:" in line or "LỖI Build:" in line or "LỖI HỆ THỐNG TRONG QUÁ TRÌNH DEPLOY:" in line:
+                                deploy_status_msg = "\033[91mThất bại\033[0m"
+                                
+                        if last_webhook and deploy_status_msg:
+                            break
+            except:
+                pass
+                
+        if last_webhook:
+            print(f"           \033[96m🔄 Tín hiệu Pull tự động:\033[0m {last_webhook} - Kết quả: {deploy_status_msg}")
+        else:
+            print(f"           \033[96m🔄 Tín hiệu Pull tự động:\033[0m \033[90mChưa ghi nhận tín hiệu nào từ Github\033[0m")
+        
         for idx, conf in enumerate(conf_list):
             prefix = "  "
             if len(conf_list) > 1:
