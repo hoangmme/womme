@@ -110,6 +110,10 @@ def process_deploy(domain, config):
         if not success:
             log_message(domain, f"LỖI Clone: {out}")
             return False
+            
+        # Lưu thông tin commit hiện tại để hiển thị cho lệnh mme deploy list
+        run_cmd("git log -1 --format='%cd - %s' --date=relative > .mme_commit", cwd=new_release_dir)
+        run_cmd("git rev-parse HEAD > .mme_hash", cwd=new_release_dir)
         
         run_cmd(f"rm -rf {new_release_dir}/.git")
 

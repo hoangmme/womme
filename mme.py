@@ -598,71 +598,17 @@ def cmd_deploy_list(args):
         if isinstance(conf_list, dict):
             conf_list = [conf_list]
             
-        # 2. Kiểm tra trạng thái Webhook
-        webhook_status = "\033[91m❌ LỖI (Webhook Endpoint không hoạt động)\033[0m"
-        # Test new Nginx endpoint first
+        print(f"- Domain:  \033[1;96m{domain}\033[0m")
+        print(f"  Webhook: \033[1;36mhttps://{domain}/mme-webhook\033[0m")
+        
+        # Test webhook endpoint
         curl_cmd = ["curl", "-L", "-X", "POST", "-s", "-o", "/dev/null", "-w", "%{http_code}", f"https://{domain}/mme-webhook"]
         res = subprocess.run(curl_cmd, capture_output=True, text=True)
         is_webhook_ok = res.stdout.strip() in ['200', '201']
-        endpoint_type = "Nginx"
-        
-        if not is_webhook_ok:
-            # Fallback test old WPMMe endpoint
-            curl_cmd = ["curl", "-L", "-X", "POST", "-s", "-o", "/dev/null", "-w", "%{http_code}", f"https://{domain}/wp-json/wpmme/v1/deploy"]
-            res = subprocess.run(curl_cmd, capture_output=True, text=True)
-            is_webhook_ok = res.stdout.strip() in ['200', '201']
-            endpoint_type = "WPMMe"
-        # 3. Kiểm tra log để xem Github đã thực sự gọi Webhook bao giờ chưa & trạng thái Deploy
-        last_webhook = ""
-        deploy_status_msg = ""
-        log_file = f"/var/log/womme/{domain}.log"
-        if os.path.exists(log_file):
-            try:
-                with open(log_file, "r") as f:
-                    lines = f.readlines()
-                    for line in reversed(lines):
-                        if not last_webhook and "⚡ Đã nhận Webhook thành công" in line:
-                            parts = line.split("]", 1)
-                            if len(parts) > 1:
-                                time_str = parts[0].strip("[")
-                                last_webhook = f" \033[90m(Nhận webhook: {time_str})\033[0m"
-                                
-                        if not deploy_status_msg:
-                            if "=== DEPLOY THÀNH CÔNG ===" in line:
-                                deploy_status_msg = "\n           \033[92m✅ Trạng thái Pull Code: Thành công\033[0m"
-                            elif "LỖI Clone:" in line:
-                                err = line.split("LỖI Clone:", 1)[1].strip()
-                                if len(err) > 80: err = err[:77] + "..."
-                                deploy_status_msg = f"\n           \033[91m❌ LỖI GIT PULL:\033[0m {err}\n           \033[93m👉 Sửa: Kiểm tra lại SSH Key Github/Gitlab hoặc chạy 'mme deploy logs {domain}'\033[0m"
-                            elif "LỖI Build:" in line:
-                                err = line.split("LỖI Build:", 1)[1].strip()
-                                if len(err) > 80: err = err[:77] + "..."
-                                deploy_status_msg = f"\n           \033[91m❌ LỖI BUILD:\033[0m {err}\n           \033[93m👉 Sửa: Xem lại cấu hình build hoặc chạy 'mme deploy logs {domain}'\033[0m"
-                            elif "LỖI HỆ THỐNG TRONG QUÁ TRÌNH DEPLOY:" in line:
-                                err = line.split("DEPLOY:", 1)[1].strip()
-                                if len(err) > 80: err = err[:77] + "..."
-                                deploy_status_msg = f"\n           \033[91m❌ LỖI HỆ THỐNG:\033[0m {err}"
-                            elif "KHÔNG KHỚP repo nào" in line:
-                                deploy_status_msg = f"\n           \033[91m❌ LỖI WEBHOOK:\033[0m Nhận được tín hiệu từ Github nhưng URL Repo không khớp cấu hình!\n           \033[93m👉 Sửa: Kiểm tra định dạng Payload (chọn application/json) hoặc check lại URL repo trong 'mme deploy edit {domain}'\033[0m"
-                                
-                        if last_webhook and deploy_status_msg:
-                            break
-            except:
-                pass
-                
         if is_webhook_ok:
-            if last_webhook or deploy_status_msg:
-                webhook_status = f"\033[92m✅ OK\033[0m ({endpoint_type}){last_webhook}{deploy_status_msg}"
-                if "❌ LỖI WEBHOOK" in deploy_status_msg:
-                    webhook_status = f"\033[91m❌ LỖI ĐỒNG BỘ\033[0m ({endpoint_type}){last_webhook}{deploy_status_msg}"
-            else:
-                webhook_status = f"\033[93m⚠️ Cổng đã mở ({endpoint_type}) (Chưa nhận được tín hiệu thực tế từ Github)\033[0m"
-                webhook_status += f"\n           \033[93m👉 Payload URL cần cấu hình: \033[1;36mhttps://{domain}/mme-webhook\033[0m"
+            print("           \033[92m✅ Trạng thái Webhook: OK (Đang lắng nghe)\033[0m")
         else:
-            webhook_status += f"\n           \033[93m👉 Payload URL: \033[1;36mhttps://{domain}/mme-webhook\033[0m"
-            
-        print(f"- Domain:  \033[1;96m{domain}\033[0m")
-        print(f"  Webhook: {webhook_status}")
+            print("           \033[91m❌ Trạng thái Webhook: LỖI (Không phản hồi, hãy kiểm tra Nginx)\033[0m")
         
         for idx, conf in enumerate(conf_list):
             prefix = "  "
@@ -672,34 +618,63 @@ def cmd_deploy_list(args):
             else:
                 print(f"  Repo:    {conf.get('repo', '')}")
                 
-            if conf.get('branch'):
-                print(f"{prefix}Branch:  {conf.get('branch')}")
+            branch_val = conf.get('branch', '')
+            if branch_val:
+                print(f"{prefix}Branch:  {branch_val}")
                 
             path_val = conf.get('path', '')
-            if path_val:
-                path_status = path_val
+            full_path = f"/var/www/{domain}/htdocs"
+            if path_val and path_val not in [".", "htdocs"]:
                 full_path = f"/var/www/{domain}/htdocs/{path_val}"
-                
-                if path_val.startswith("wp-content/themes/"):
-                    try:
-                        active_theme_res = subprocess.run(
-                            ["wp", "theme", "list", "--status=active", "--field=name", f"--path=/var/www/{domain}/htdocs", "--allow-root"],
-                            capture_output=True, text=True, timeout=5
-                        )
-                        active_theme = active_theme_res.stdout.strip()
-                        theme_folder = path_val.replace("wp-content/themes/", "").strip("/")
-                        if active_theme and active_theme != theme_folder:
-                            path_status += f"\n{prefix}     \033[93m⚠️ CẢNH BÁO: Đây KHÔNG PHẢI là theme đang kích hoạt ({active_theme}). Nếu cấu hình sai, gõ 'mme deploy edit {domain}' để sửa.\033[0m"
-                    except:
-                        pass
-                elif path_val.startswith("wp-content/plugins/"):
-                    if not os.path.exists(full_path):
-                        path_status += f"\n{prefix}     \033[93m⚠️ CẢNH BÁO: Thư mục plugin này chưa tồn tại. Code đẩy về sẽ tạo thư mục mới nhưng plugin có thể chưa được kích hoạt.\033[0m"
+            
+            # --- Check Real-time Remote Status ---
+            repo_val = conf.get('repo', '')
+            remote_hash = ""
+            remote_status_msg = ""
+            if repo_val:
+                os.environ["GIT_SSH_COMMAND"] = "ssh -o StrictHostKeyChecking=no -o BatchMode=yes -i /root/.ssh/id_ed25519"
+                ls_cmd = ["git", "ls-remote", repo_val]
+                if branch_val:
+                    ls_cmd.append(branch_val)
                 else:
-                    if not os.path.exists(full_path):
-                        path_status += f"\n{prefix}     \033[93m⚠️ CẢNH BÁO: Đường dẫn này không tồn tại trên máy chủ.\033[0m"
-                        
-                print(f"{prefix}Path:    {path_status}")
+                    ls_cmd.append("HEAD")
+                    
+                ls_res = subprocess.run(ls_cmd, capture_output=True, text=True, timeout=15)
+                if ls_res.returncode == 0 and ls_res.stdout:
+                    lines = ls_res.stdout.strip().split('\n')
+                    if lines:
+                        remote_hash = lines[0].split('\t')[0]
+                        remote_status_msg = f"\033[92m✅ Kết nối Git thành công\033[0m"
+                else:
+                    err = ls_res.stderr.strip()
+                    if len(err) > 80: err = err[:77] + "..."
+                    remote_status_msg = f"\033[91m❌ Lỗi kết nối Repo:\033[0m {err}"
+            
+            # --- Check Local Status ---
+            local_hash = ""
+            local_commit_msg = ""
+            if os.path.exists(full_path):
+                # Try reading .mme_commit and .mme_hash
+                if os.path.exists(f"{full_path}/.mme_commit"):
+                    with open(f"{full_path}/.mme_commit", "r") as f:
+                        local_commit_msg = f.read().strip()
+                if os.path.exists(f"{full_path}/.mme_hash"):
+                    with open(f"{full_path}/.mme_hash", "r") as f:
+                        local_hash = f.read().strip()
+            
+            print(f"{prefix}Path:    {path_val} (-> {full_path})")
+            print(f"{prefix}Ping:    {remote_status_msg}")
+            
+            if local_hash:
+                print(f"{prefix}Version: {local_commit_msg}")
+                if remote_hash:
+                    if local_hash == remote_hash:
+                        print(f"{prefix}Sync:    \033[92m✅ Code đã đồng bộ mới nhất\033[0m")
+                    else:
+                        print(f"{prefix}Sync:    \033[93m⚠️ Đang chạy bản cũ. Có cập nhật mới trên Github! (Chưa pull)\033[0m")
+            else:
+                print(f"{prefix}Sync:    \033[90m(Chưa có thông tin deploy hoặc thư mục chưa tồn tại)\033[0m")
+                
             if conf.get('build'):
                 print(f"{prefix}Build:   {conf.get('build')}")
         print("\033[90m" + "-" * 60 + "\033[0m")
