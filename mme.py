@@ -607,7 +607,7 @@ def cmd_deploy_list(args):
             setup_nginx_webhook(domain)
             
         # Test webhook endpoint
-        curl_cmd = ["curl", "-L", "-X", "POST", "-s", "-o", "/dev/null", "-w", "%{http_code}", f"https://{domain}/mme-webhook"]
+        curl_cmd = ["curl", "-L", "-X", "GET", "-s", "-o", "/dev/null", "-w", "%{http_code}", f"https://{domain}/mme-webhook"]
         res = subprocess.run(curl_cmd, capture_output=True, text=True)
         is_webhook_ok = res.stdout.strip() in ['200', '201']
         if is_webhook_ok:
@@ -678,12 +678,15 @@ def cmd_deploy_list(args):
                 print(f"{prefix}Version: {local_commit_msg}")
                 if local_trigger:
                     print(f"{prefix}Trigger: {local_trigger}")
+                else:
+                    print(f"{prefix}Trigger: \033[93m⚠️ Chưa nhận tín hiệu Webhook mới (Nếu đang dùng URL /wp-json/... cũ, hãy đổi sang /mme-webhook)\033[0m")
                 if remote_hash:
                     if local_hash == remote_hash:
                         print(f"{prefix}Sync:    \033[92m✅ Code đã đồng bộ mới nhất\033[0m")
                     else:
                         print(f"{prefix}Sync:    \033[93m⚠️ Đang chạy bản cũ. Có cập nhật mới trên Github! (Chưa pull)\033[0m")
             else:
+                print(f"{prefix}Trigger: \033[93m⚠️ Chưa có dữ liệu deploy mới (Vui lòng kiểm tra lại URL Webhook trên Github)\033[0m")
                 print(f"{prefix}Sync:    \033[90m(Chưa có thông tin deploy hoặc thư mục chưa tồn tại)\033[0m")
                 
             if conf.get('build'):
