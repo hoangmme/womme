@@ -265,19 +265,6 @@ class WebhookHandler(BaseHTTPRequestHandler):
             self.end_headers()
             return
             
-        config_data = load_config().get(domain)
-        
-        if not config_data:
-            self.send_response(404)
-            self.end_headers()
-            self.wfile.write(b"Domain config not found")
-            return
-            
-        if isinstance(config_data, dict):
-            config_list = [config_data]
-        else:
-            config_list = config_data
-
         content_length = int(self.headers.get('Content-Length', 0))
         post_data = self.rfile.read(content_length)
         
@@ -286,7 +273,6 @@ class WebhookHandler(BaseHTTPRequestHandler):
             try:
                 payload = json.loads(payload_str)
             except json.JSONDecodeError:
-                # Fallback for application/x-www-form-urlencoded
                 from urllib.parse import parse_qs
                 parsed = parse_qs(payload_str)
                 if 'payload' in parsed:
@@ -296,12 +282,10 @@ class WebhookHandler(BaseHTTPRequestHandler):
         except:
             payload = {}
 
-        # Lấy thông tin Repo từ Webhook
         repo_ssh_url = payload.get('repository', {}).get('ssh_url', '')
         repo_html_url = payload.get('repository', {}).get('html_url', '')
         repo_clone_url = payload.get('repository', {}).get('clone_url', '')
         
-        # Hàm chuẩn hóa URL để so sánh
         def normalize_repo_url(url):
             url = url.replace("https://github.com/", "git@github.com:")
             url = url.replace("https://gitlab.com/", "git@gitlab.com:")
@@ -311,18 +295,24 @@ class WebhookHandler(BaseHTTPRequestHandler):
             
         webhook_repo_urls = [normalize_repo_url(u) for u in [repo_ssh_url, repo_html_url, repo_clone_url] if u]
         
+        all_configs = load_config()
+        matched_domain = None
         matched_config = None
         
-        # Nếu chỉ có 1 cấu hình, mặc định dùng luôn (tương thích ngược)
-        if len(config_list) == 1:
-            matched_config = config_list[0]
-        else:
-            # Nếu có nhiều cấu hình, tìm cấu hình khớp repo
-            for conf in config_list:
+        # Quét chéo toàn bộ các domain trên VPS để tìm cấu hình khớp repo URL
+        for dom, conf_data in all_configs.items():
+            conf_list = [conf_data] if isinstance(conf_data, dict) else conf_data
+            for conf in conf_list:
                 conf_repo = normalize_repo_url(conf.get("repo", ""))
-                if conf_repo in webhook_repo_urls:
+                if conf_repo and conf_repo in webhook_repo_urls:
+                    matched_domain = dom
                     matched_config = conf
                     break
+            if matched_config:
+                break
+        
+        if matched_domain:
+            domain = matched_domain  # Update domain to the one actually deploying
                     
         if not matched_config:
             if post_data:
