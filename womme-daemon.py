@@ -284,25 +284,25 @@ class WebhookHandler(BaseHTTPRequestHandler):
         repo_html_url = payload.get('repository', {}).get('html_url', '')
         repo_clone_url = payload.get('repository', {}).get('clone_url', '')
         
-        def normalize_repo_url(url):
-            url = url.replace("https://github.com/", "git@github.com:")
-            url = url.replace("https://gitlab.com/", "git@gitlab.com:")
-            if url.startswith("git@") and not url.endswith(".git"):
-                url += ".git"
-            return url
-            
-        webhook_repo_urls = [normalize_repo_url(u) for u in [repo_ssh_url, repo_html_url, repo_clone_url] if u]
+        def get_repo_key(url):
+            if not url: return ""
+            url = url.strip().lower()
+            url = url.replace("https://github.com/", "").replace("https://gitlab.com/", "")
+            url = url.replace("git@github.com:", "").replace("git@gitlab.com:", "")
+            return url.rstrip("/").rstrip(".git").strip()
+
+        webhook_repo_keys = [get_repo_key(u) for u in [repo_ssh_url, repo_html_url, repo_clone_url] if u]
         
         all_configs = load_config()
         matched_domain = None
         matched_config = None
         
-        # Quét chéo toàn bộ các domain trên VPS để tìm cấu hình khớp repo URL
+        # Quét chéo toàn bộ các domain trên VPS với so sánh bất chấp hoa thường và định dạng URL
         for dom, conf_data in all_configs.items():
             conf_list = [conf_data] if isinstance(conf_data, dict) else conf_data
             for conf in conf_list:
-                conf_repo = normalize_repo_url(conf.get("repo", ""))
-                if conf_repo and conf_repo in webhook_repo_urls:
+                conf_repo_key = get_repo_key(conf.get("repo", ""))
+                if conf_repo_key and conf_repo_key in webhook_repo_keys:
                     matched_domain = dom
                     matched_config = conf
                     break
@@ -367,11 +367,11 @@ class WebhookHandler(BaseHTTPRequestHandler):
         
         log_message(domain, f"⚡ Đã nhận Webhook thành công từ Github/Gitlab (Branch: {push_branch})")
 
-        # Chạy deploy ngầm (fork)
-        pid = os.fork()
-        if pid == 0:
-            process_deploy(domain, matched_config, trigger_type="Tự động (Webhook)")
-            os._exit(0)
+        # Chạy deploy ngầm bằng Threading (Ổn định, không bị dính socket)
+        import threading
+        t = threading.Thread(target=process_deploy, args=(domain, matched_config, "Tự động (Webhook)"))
+        t.daemon = True
+        t.start()
 
 def run_server(port=8989):
     server_address = ('', port)
