@@ -35,7 +35,7 @@ mme site wpmme domain.com
 ```
 
 2. Vào Github > Settings > Webhooks > Add webhook, nhập:
-- **Payload URL**: `https://domain.com/wp-json/wpmme/v1/deploy`
+- **Payload URL**: `https://domain.com/mme-webhook`
 - **Content type**: `application/json`
 
 *(Plugin sẽ nhận tín hiệu mã hóa từ Github và âm thầm kích hoạt tiến trình Deploy của Server mà không gây nặng web).*

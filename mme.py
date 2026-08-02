@@ -340,7 +340,7 @@ def cmd_deploy_push(args):
     print("   [Tên Repo của bạn] > Settings > Deploy Keys > Add deploy key")
     print("2. Thêm Webhook URL sau vào phần:")
     print("   [Tên Repo của bạn] > Settings > Webhooks > Add webhook")
-    print(f"   - Payload URL: https://{args.domain}/wp-json/wpmme/v1/deploy")
+    print(f"   - Payload URL: https://{args.domain}/mme-webhook")
     print("   - Content type: application/json")
     print("="*64 + "\n")
     
