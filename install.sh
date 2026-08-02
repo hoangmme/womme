@@ -18,7 +18,7 @@ DAEMON_DIR="/usr/local/bin"
 
 echo "Đang tải source code tool từ Github..."
 CACHE_BUSTER=$(date +%s)
-curl -sL "$REPO_RAW_URL/mme.py?t=$CACHE_BUSTER" -o "/usr/local/bin/mme"
+curl -sL "$REPO_RAW_URL/mme.py?v=$(date +%s%N)" -o "/usr/local/bin/mme"
 curl -sL "$REPO_RAW_URL/womme-daemon.py?t=$CACHE_BUSTER" -o "$DAEMON_DIR/womme-daemon.py"
 
 chmod +x "/usr/local/bin/mme"
