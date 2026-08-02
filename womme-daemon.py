@@ -254,16 +254,14 @@ class WebhookHandler(BaseHTTPRequestHandler):
         self.wfile.write(b"MMe Webhook is running. Please send POST requests from Github/Gitlab.")
         
     def do_POST(self):
-        domain = None
-        if self.path.startswith("/hooks/"):
-            domain = self.path.split("/hooks/")[-1].strip("/")
-        elif self.path.startswith("/mme-webhook"):
-            domain = self.headers.get("X-MMe-Domain")
-
-        if not domain:
+        if not (self.path.startswith("/mme-webhook") or self.path.startswith("/hooks/")):
             self.send_response(404)
             self.end_headers()
             return
+
+        domain = self.headers.get("X-MMe-Domain")
+        if self.path.startswith("/hooks/"):
+            domain = self.path.split("/hooks/")[-1].strip("/")
             
         content_length = int(self.headers.get('Content-Length', 0))
         post_data = self.rfile.read(content_length)
@@ -316,7 +314,7 @@ class WebhookHandler(BaseHTTPRequestHandler):
                     
         if not matched_config:
             if post_data:
-                log_message(domain, f"⚠️ Đã nhận Webhook nhưng KHÔNG KHỚP repo nào! (Webhook repo: {webhook_repo_urls})")
+                log_message(domain or "system", f"⚠️ Đã nhận Webhook nhưng KHÔNG KHỚP repo nào! (Webhook repo: {webhook_repo_urls})")
             self.send_response(200)
             self.end_headers()
             self.wfile.write(b"Webhook received but no matching repository config found.")
