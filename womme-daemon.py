@@ -295,84 +295,61 @@ class WebhookHandler(BaseHTTPRequestHandler):
         webhook_repo_keys = [get_repo_key(u) for u in [repo_ssh_url, repo_html_url, repo_clone_url] if u]
         
         all_configs = load_config()
-        matched_domain = None
-        matched_config = None
+        matched_targets = []
         
-        # Quét chéo toàn bộ các domain trên VPS với so sánh bất chấp hoa thường và định dạng URL
+        # Quét chéo toàn bộ các domain trên VPS để tìm TẤT CẢ các site đăng ký repo này
         for dom, conf_data in all_configs.items():
             conf_list = [conf_data] if isinstance(conf_data, dict) else conf_data
             for conf in conf_list:
                 conf_repo_key = get_repo_key(conf.get("repo", ""))
                 if conf_repo_key and conf_repo_key in webhook_repo_keys:
-                    matched_domain = dom
-                    matched_config = conf
-                    break
-            if matched_config:
-                break
-        
-        if matched_domain:
-            domain = matched_domain  # Update domain to the one actually deploying
+                    matched_targets.append((dom, conf))
                     
-        if not matched_config:
+        if not matched_targets:
             if post_data:
-                log_message(domain or "system", f"⚠️ Đã nhận Webhook nhưng KHÔNG KHỚP repo nào! (Webhook repo: {webhook_repo_urls})")
+                log_message("system", f"⚠️ Đã nhận Webhook nhưng KHÔNG KHỚP repo nào! (Webhook repo: {webhook_repo_urls})")
             self.send_response(200)
             self.end_headers()
             self.wfile.write(b"Webhook received but no matching repository config found.")
             return
 
-        # 1. Xác thực Signature (Nếu có cấu hình Secret)
-        secret = matched_config.get("secret")
-        if secret:
-            github_signature = self.headers.get('X-Hub-Signature-256')
-            gitlab_token = self.headers.get('X-Gitlab-Token')
-            
-            if github_signature:
-                expected_mac = hmac.new(secret.encode(), msg=post_data, digestmod=hashlib.sha256).hexdigest()
-                expected_sig = "sha256=" + expected_mac
-                if not hmac.compare_digest(expected_sig, github_signature):
-                    self.send_response(403)
-                    self.end_headers()
-                    self.wfile.write(b"Invalid Github Signature")
-                    return
-            elif gitlab_token:
-                if gitlab_token != secret:
-                    self.send_response(403)
-                    self.end_headers()
-                    self.wfile.write(b"Invalid Gitlab Token")
-                    return
-            else:
-                self.send_response(403)
-                self.end_headers()
-                self.wfile.write(b"Missing Signature/Token Header")
-                return
-
-        # 2. Lấy thông tin Branch
-        try:
-            ref = payload.get('ref', '')
-            push_branch = ref.split('/')[-1] if ref else ''
-            
-            target_branch = matched_config.get("branch", "")
-            if target_branch and push_branch and push_branch != target_branch:
-                self.send_response(200)
-                self.end_headers()
-                self.wfile.write(f"Push to branch {push_branch} ignored. Target is {target_branch}.".encode())
-                return
-        except:
-            pass # Bỏ qua nếu parse lỗi (thường là ping event)
-
         # Báo OK ngay lập tức để Github không bị timeout
         self.send_response(200)
         self.end_headers()
         self.wfile.write(b"Webhook received. Deploying in background...")
-        
-        log_message(domain, f"⚡ Đã nhận Webhook thành công từ Github/Gitlab (Branch: {push_branch})")
 
-        # Chạy deploy ngầm bằng Threading (Ổn định, không bị dính socket)
         import threading
-        t = threading.Thread(target=process_deploy, args=(domain, matched_config, "Tự động (Webhook)"))
-        t.daemon = True
-        t.start()
+        for target_dom, target_conf in matched_targets:
+            # 1. Xác thực Signature nếu có
+            secret = target_conf.get("secret")
+            if secret:
+                github_signature = self.headers.get('X-Hub-Signature-256')
+                gitlab_token = self.headers.get('X-Gitlab-Token')
+                if github_signature:
+                    expected_mac = hmac.new(secret.encode(), msg=post_data, digestmod=hashlib.sha256).hexdigest()
+                    if not hmac.compare_digest("sha256=" + expected_mac, github_signature):
+                        log_message(target_dom, "LỖI: Invalid Github Signature")
+                        continue
+                elif gitlab_token and gitlab_token != secret:
+                    log_message(target_dom, "LỖI: Invalid Gitlab Token")
+                    continue
+
+            # 2. Branch check
+            push_branch = ''
+            try:
+                ref = payload.get('ref', '')
+                push_branch = ref.split('/')[-1] if ref else ''
+                target_branch = target_conf.get("branch", "")
+                if target_branch and push_branch and push_branch != target_branch:
+                    log_message(target_dom, f"Bỏ qua deploy branch {push_branch} (Yêu cầu: {target_branch})")
+                    continue
+            except:
+                pass
+
+            log_message(target_dom, f"⚡ Đã nhận Webhook thành công từ Github/Gitlab (Branch: {push_branch})")
+            t = threading.Thread(target=process_deploy, args=(target_dom, target_conf, "Tự động (Webhook)"))
+            t.daemon = True
+            t.start()
 
 def run_server(port=8989):
     server_address = ('', port)
