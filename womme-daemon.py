@@ -49,7 +49,7 @@ def get_site_owner(domain):
         return "www-data"
 
 def process_deploy(domain, config, trigger_type="Thủ công (mme deploy pull)"):
-    log_message(domain, "=== BẮT ĐẦU DEPLOY ===")
+    log_message(domain, f"=== BẮT ĐẦU DEPLOY [{trigger_type}] ===")
     
     lock_file = f"/tmp/womme_deploy_{domain}.lock"
     import fcntl
