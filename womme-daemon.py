@@ -53,11 +53,12 @@ def process_deploy(domain, config, trigger_type="Thủ công (mme deploy pull)")
     
     lock_file = f"/tmp/womme_deploy_{domain}.lock"
     import fcntl
+    lock_fd = None
     try:
         lock_fd = open(lock_file, 'w')
         try:
             fcntl.flock(lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        except BlockingIOError:
+        except (BlockingIOError, OSError, IOError):
             log_message(domain, "LỖI: Tiến trình deploy khác đang chạy (Lock file is locked).")
             return False
     except Exception as e:
