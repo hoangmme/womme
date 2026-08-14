@@ -819,8 +819,8 @@ def cmd_site_clone(args):
         return
 
     if not os.path.exists(dest_path):
-        log_error(f"Thư mục đích {dest_path} chưa được tạo! Vui lòng tạo site đích trước khi clone.")
-        return
+        log_info(f"Thư mục đích {dest_path} chưa tồn tại. Sẽ tự động tạo thư mục rỗng...")
+        os.makedirs(dest_path, exist_ok=True)
 
     if not force:
         log_info(f"CẢNH BÁO: Thao tác này sẽ GHI ĐÈ toàn bộ Source và Database của {dest_domain}.")
