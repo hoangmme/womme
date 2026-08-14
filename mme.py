@@ -1,3 +1,4 @@
+import time
 #!/usr/bin/env python3
 import os
 import json
@@ -1087,6 +1088,118 @@ CUSTOM_HELP = """
 \033[96m==================================================\033[0m
 """
 
+
+def cmd_site_copy(args):
+    source_dir = args.source.rstrip("/")
+    dest_dir = args.dest.rstrip("/")
+    
+    if not os.path.exists(source_dir):
+        log_error(f"Đường dẫn nguồn {source_dir} không tồn tại!")
+        return
+        
+    print("\n" + "="*64)
+    print(f" BẠN ĐANG CHUẨN BỊ COPY WEBSITE SANG VPS MỚI")
+    print(f" Nguồn (VPS hiện tại): {source_dir}")
+    print(f" Đích (VPS mới):       {dest_dir}")
+    print("="*64)
+    
+    conn_str = input("Nhập thông tin VPS đích (VD: root@103.110.87.69:22 hoặc chỉ nhập IP): ").strip()
+    if not conn_str:
+        log_error("Thông tin VPS đích không được để trống!")
+        return
+        
+    user = "root"
+    port = "22"
+    ip = conn_str
+    
+    if "@" in ip:
+        user, ip = ip.split("@", 1)
+    if ":" in ip:
+        ip, port = ip.split(":", 1)
+
+    # Hỏi xem có đổi domain không
+    old_domain = ""
+    new_domain = ""
+    do_sr = input("\nBạn có muốn đổi tên miền sau khi copy không? (y/N): ").strip().lower()
+    if do_sr == 'y':
+        old_domain = input("  Tên miền cũ (VD: old.com): ").strip()
+        new_domain = input("  Tên miền mới (VD: new.com): ").strip()
+
+    # Đảm bảo có SSH key
+    ensure_ssh_key()
+    
+    pub_key_path = "/root/.ssh/id_ed25519.pub"
+    if not os.path.exists(pub_key_path):
+        pub_key_path = "/root/.ssh/id_rsa.pub"
+        
+    with open(pub_key_path, "r") as f:
+        pub_key = f.read().strip()
+        
+    print("\n" + "="*64)
+    print(" BƯỚC 1: CẤP QUYỀN Ở VPS ĐÍCH")
+    print("="*64)
+    print(f"Bạn hãy mở một phần mềm SSH mới, đăng nhập vào VPS đích ({ip})")
+    print("sau đó copy và dán đoạn lệnh dưới đây vào rồi nhấn Enter:")
+    print(f"\\nmkdir -p ~/.ssh && chmod 700 ~/.ssh && echo '{pub_key}' >> ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys\\n")
+    print("="*64)
+    
+    input("BƯỚC 2: Sau khi đã chạy lệnh trên ở VPS đích, hãy nhấn Enter tại đây để bắt đầu clone...")
+    
+    log_info(f"Đang kiểm tra kết nối và tạo thư mục đích tại {user}@{ip}...")
+    mkdir_cmd = ["ssh", "-p", port, "-o", "StrictHostKeyChecking=no", "-i", "/root/.ssh/id_ed25519", f"{user}@{ip}", f"mkdir -p {dest_dir}"]
+    res = subprocess.run(mkdir_cmd)
+    if res.returncode != 0:
+        log_error("Lỗi kết nối SSH đến VPS đích. Bạn đã chạy lệnh cấp quyền ở VPS đích chưa?")
+        return
+
+    # Export DB local
+    log_info("Đang xuất cơ sở dữ liệu trên VPS hiện tại...")
+    tmp_sql = f"/tmp/mme_site_copy_{int(time.time())}.sql"
+    # wp-config ở trước 1 bậc, wp-cli tự động nhận diện
+    export_cmd = ["bash", "-lc", f"wp db export {tmp_sql} --path={source_dir} --allow-root"]
+    res = subprocess.run(export_cmd)
+    if res.returncode != 0:
+        log_error("Không thể export database bằng WP-CLI! Đảm bảo wp-cli có sẵn trên máy.")
+        return
+
+    log_info(f"Đang đồng bộ thư mục web và Database (Tốc độ phụ thuộc mạng)...")
+    rsync_cmd = [
+        "rsync", "-avz", "--progress",
+        "-e", f"ssh -p {port} -o StrictHostKeyChecking=no -i /root/.ssh/id_ed25519",
+        source_dir + "/",
+        f"{user}@{ip}:{dest_dir}/"
+    ]
+    subprocess.run(rsync_cmd)
+    
+    # Sync DB file
+    rsync_sql = [
+        "rsync", "-avz", "--progress",
+        "-e", f"ssh -p {port} -o StrictHostKeyChecking=no -i /root/.ssh/id_ed25519",
+        tmp_sql,
+        f"{user}@{ip}:{tmp_sql}"
+    ]
+    subprocess.run(rsync_sql)
+    
+    log_info("Đang import cơ sở dữ liệu trên VPS đích...")
+    import_sh = f"wp db import {tmp_sql} --path={dest_dir} --allow-root"
+    if old_domain and new_domain:
+        import_sh += f" && wp search-replace '//{old_domain}' '//{new_domain}' --all-tables --path={dest_dir} --allow-root"
+        import_sh += f" && wp search-replace '{old_domain}' '{new_domain}' --all-tables --path={dest_dir} --allow-root"
+    import_sh += f" && rm {tmp_sql}"
+    
+    import_cmd = ["ssh", "-p", port, "-o", "StrictHostKeyChecking=no", "-i", "/root/.ssh/id_ed25519", f"{user}@{ip}", f"bash -lc \"{import_sh}\""]
+    res = subprocess.run(import_cmd)
+    if res.returncode == 0:
+        log_info("Import Database thành công!")
+    else:
+        log_error("Lỗi khi import Database trên VPS đích. Hãy chắc chắn VPS đích đã cài wp-cli và wp-config.php hợp lệ.")
+
+    # Clean up local
+    if os.path.exists(tmp_sql):
+        os.remove(tmp_sql)
+
+    log_info(f"✅ Đã copy xong website sang VPS {ip}!")
+
 def cmd_site_migrate(args):
     old_domain = args.old
     new_domain = args.new
@@ -1567,7 +1680,7 @@ def cmd_copy(args):
         log_error(f"Đường dẫn nguồn {source_dir} không tồn tại!")
         return
         
-    print("\n" + "="*64)
+    print("\\n" + "="*64)
     print(f" BẠN ĐANG CHUẨN BỊ COPY THƯ MỤC SANG VPS MỚI")
     print(f" Nguồn: {source_dir}")
     print(f" Đích:  {dest_dir}")
@@ -1597,7 +1710,7 @@ def cmd_copy(args):
     with open(pub_key_path, "r") as f:
         pub_key = f.read().strip()
         
-    print("\n" + "="*64)
+    print("\\n" + "="*64)
     print(" BƯỚC 1: CẤP QUYỀN Ở VPS ĐÍCH")
     print("="*64)
     print(f"Bạn hãy mở một phần mềm SSH mới, đăng nhập vào VPS đích ({ip})")
@@ -1753,6 +1866,12 @@ def main():
     site_rename.add_argument("--le", action="store_true", help="Cài đặt luôn SSL cho site mới")
     site_rename.add_argument("--force", action="store_true", help="Ép buộc chạy lệnh bỏ qua cảnh báo")
     site_rename.set_defaults(func=cmd_site_rename)
+    
+    # site copy
+    site_copy = site_sub.add_parser("copy", help="Copy trực tiếp website sang VPS khác (Source + DB)")
+    site_copy.add_argument("source", help="Đường dẫn thư mục gốc ở VPS hiện tại (VD: /home/web/public_html)")
+    site_copy.add_argument("dest", help="Đường dẫn thư mục đích ở VPS mới (VD: /var/www/web/htdocs)")
+    site_copy.set_defaults(func=cmd_site_copy)
     
     # site migrate
     site_migrate = site_sub.add_parser("migrate", help="Di chuyển toàn bộ website sang VPS mới")
