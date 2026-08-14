@@ -1103,10 +1103,11 @@ def cmd_site_copy(args):
     print(f" Đích (VPS mới):       {dest_dir}")
     print("="*64)
     
-    conn_str = input("Nhập thông tin VPS đích (VD: root@103.110.87.69:22 hoặc chỉ nhập IP): ").strip()
-    if not conn_str:
-        log_error("Thông tin VPS đích không được để trống!")
-        return
+    conn_str = ""
+    while not conn_str:
+        conn_str = input("Nhập thông tin VPS đích (VD: root@103.110.87.69:22 hoặc chỉ nhập IP): ").strip()
+        if not conn_str:
+            print("  Vui lòng không để trống!")
         
     user = "root"
     port = "22"
@@ -1686,10 +1687,11 @@ def cmd_copy(args):
     print(f" Đích:  {dest_dir}")
     print("="*64)
     
-    conn_str = input("Nhập thông tin VPS đích (VD: root@103.110.87.69:22 hoặc chỉ nhập IP): ").strip()
-    if not conn_str:
-        log_error("Thông tin VPS đích không được để trống!")
-        return
+    conn_str = ""
+    while not conn_str:
+        conn_str = input("Nhập thông tin VPS đích (VD: root@103.110.87.69:22 hoặc chỉ nhập IP): ").strip()
+        if not conn_str:
+            print("  Vui lòng không để trống!")
         
     user = "root"
     port = "22"
