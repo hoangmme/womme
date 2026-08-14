@@ -851,6 +851,12 @@ def cmd_site_clone(args):
         subprocess.run(f"mv /tmp/wp-config-root-{dest_domain}.php {dest_base}/wp-config.php", shell=True)
 
     log_info("Đang chuyển đổi cơ sở dữ liệu (Database)...")
+    # Đồng bộ Prefix trước khi import
+    source_prefix_cmd = ["bash", "-lc", f"wp config get table_prefix --path={source_path} --allow-root"]
+    source_prefix = subprocess.run(source_prefix_cmd, capture_output=True, text=True).stdout.strip()
+    if source_prefix:
+        subprocess.run(['bash', '-lc', f"wp config set table_prefix {source_prefix} --type=variable --path={dest_path} --allow-root"])
+        
     subprocess.run(['bash', '-lc', f"wp db export /tmp/mme_clone_db.sql --path={source_path} --allow-root"])
     subprocess.run(['bash', '-lc', f"wp db import /tmp/mme_clone_db.sql --path={dest_path} --allow-root"])
     if os.path.exists(f"/tmp/mme_clone_db.sql"):
@@ -1162,6 +1168,11 @@ def cmd_site_copy(args):
 
     # Export DB local
     log_info("Đang xuất cơ sở dữ liệu trên VPS hiện tại...")
+    source_prefix_cmd = ["bash", "-lc", f"wp config get table_prefix --path={source_dir} --allow-root"]
+    source_prefix = subprocess.run(source_prefix_cmd, capture_output=True, text=True).stdout.strip()
+    if source_prefix:
+        log_info(f"Đã phát hiện Table Prefix nguồn: {source_prefix}")
+        
     tmp_sql = f"/tmp/mme_site_copy_{int(time.time())}.sql"
     # wp-config ở trước 1 bậc, wp-cli tự động nhận diện
     export_cmd = ["bash", "-lc", f"wp db export {tmp_sql} --path={source_dir} --allow-root"]
@@ -1189,7 +1200,10 @@ def cmd_site_copy(args):
     subprocess.run(rsync_sql)
     
     log_info("Đang import cơ sở dữ liệu trên VPS đích...")
-    import_sh = f"wp db import {tmp_sql} --path={dest_dir} --allow-root"
+    import_sh = ""
+    if source_prefix:
+        import_sh += f"wp config set table_prefix {source_prefix} --type=variable --path={dest_dir} --allow-root && "
+    import_sh += f"wp db import {tmp_sql} --path={dest_dir} --allow-root"
     if old_domain and new_domain:
         import_sh += f" && wp search-replace '//{old_domain}' '//{new_domain}' --all-tables --path={dest_dir} --allow-root"
         import_sh += f" && wp search-replace '{old_domain}' '{new_domain}' --all-tables --path={dest_dir} --allow-root"
