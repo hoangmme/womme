@@ -790,6 +790,9 @@ def cmd_site_clone(args):
     le = args.le
     force = args.force
 
+    if dest.startswith("/var/www/"):
+        dest = dest.replace("/var/www/", "").strip("/")
+
     log_info(f"Bắt đầu quá trình clone từ {source} sang {dest}...")
 
     if source.startswith("/"):
@@ -815,7 +818,7 @@ def cmd_site_clone(args):
         if force: create_cmd.append("--force")
     
         log_info(f"Đang tạo site mới {dest} bằng WordOps...")
-        subprocess.run(create_cmd)
+        subprocess.run(" ".join(create_cmd), shell=True)
         
         if not os.path.exists(f"/var/www/{dest}/htdocs"):
             log_error(f"Quá trình tạo site mới {dest} thất bại.")
