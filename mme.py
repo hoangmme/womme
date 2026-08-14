@@ -821,7 +821,6 @@ def cmd_site_clone(args):
         if force: create_cmd.append("--force")
     
         log_info(f"Đang tạo site mới {dest} bằng WordOps...")
-        import os
         env = os.environ.copy()
         env['PATH'] = '/usr/local/bin:' + env.get('PATH', '')
         subprocess.run(" ".join(create_cmd), shell=True, env=env)
