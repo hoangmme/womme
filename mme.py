@@ -756,7 +756,7 @@ location @mme_maintenance {
 
     check = subprocess.run(["nginx", "-t"], capture_output=True, text=True)
     if check.returncode == 0:
-        subprocess.run(["wo", "stack", "reload", "--nginx"], check=False)
+        subprocess.run(["bash", "-lc", "wo stack reload --nginx"], check=False)
         log_info(f"Đã BẬT bảo trì thành công cho {domain}. Trạng thái HTTP 503 sẽ được trả về.")
     else:
         log_error(f"Lỗi cấu hình Nginx. Đang tự động rollback...\n{check.stderr}")
@@ -781,7 +781,7 @@ def cmd_site_start(args):
     if os.path.exists(conf_path):
         os.remove(conf_path)
 
-    subprocess.run(["wo", "stack", "reload", "--nginx"], check=False)
+    subprocess.run(["bash", "-lc", "wo stack reload --nginx"], check=False)
     log_info(f"Đã TẮT bảo trì thành công cho {domain}. Website hoạt động bình thường.")
 
 def cmd_site_clone(args):
@@ -942,7 +942,7 @@ def cmd_site_rename(args):
 
     # 7. Xóa site cũ khỏi WordOps (File và DB đã rỗng nên an toàn)
     log_info("Đang dọn dẹp site cũ...")
-    subprocess.run(["wo", "site", "delete", old_domain, "--no-prompt"])
+    subprocess.run(["bash", "-lc", f"wo site delete {old_domain} --no-prompt"])
 
     # Cập nhật config deploy mme nếu có
     config = load_config()
@@ -1013,7 +1013,7 @@ location ~* /wp-content/(?:uploads|cache)/.*\\.php$ {
         f.write(nginx_rules)
     
     # Reload Nginx
-    subprocess.run(["wo", "stack", "reload", "--nginx"], check=False)
+    subprocess.run(["bash", "-lc", "wo stack reload --nginx"], check=False)
 
     # 3. Chạy role cho domain
     log_info("Đang chuẩn hóa quyền thư mục (mme role)...")
@@ -1046,7 +1046,7 @@ def cmd_site_lockoff(args):
     if os.path.exists(conf_path):
         log_info("Đang gỡ bỏ rule chặn PHP Nginx...")
         os.remove(conf_path)
-        subprocess.run(["wo", "stack", "reload", "--nginx"], check=False)
+        subprocess.run(["bash", "-lc", "wo stack reload --nginx"], check=False)
 
     log_info("Đang chuẩn hóa quyền thư mục (mme role)...")
     subprocess.run(["chown", "-R", "www-data:www-data", site_dir])
@@ -1488,7 +1488,7 @@ def cmd_core(args):
     log_info(f"Đã xử lý xong {success_count} website WordPress.")
     
     log_info("Đang dọn dẹp cache toàn máy chủ (wo clean --all)...")
-    subprocess.run(["wo", "clean", "--all"], capture_output=True)
+    subprocess.run(["bash", "-lc", "wo clean --all"], capture_output=True)
     log_info("Hoàn tất lệnh mme core!")
 
 def cmd_update(args):
