@@ -789,12 +789,23 @@ def cmd_site_clone(args):
     dest = args.new_domain
     le = args.le
     force = args.force
+    skip_create = getattr(args, 'skip_create', False)
 
     if dest.startswith("/var/www/"):
         dest = dest.replace("/var/www/", "")
     if dest.endswith("/htdocs"):
         dest = dest.replace("/htdocs", "")
     dest = dest.strip("/")
+    
+    # Determine destination paths
+    if dest.startswith("/"):
+        dest_path = dest.rstrip("/")
+        dest_domain = dest_path.split("/")[-1]
+        dest_base = "/".join(dest_path.split("/")[:-1])
+    else:
+        dest_path = f"/var/www/{dest}/htdocs"
+        dest_domain = dest
+        dest_base = f"/var/www/{dest}" 
 
     log_info(f"Bắt đầu quá trình clone từ {source} sang {dest}...")
 
@@ -809,54 +820,63 @@ def cmd_site_clone(args):
         log_error(f"Thư mục site gốc {source_path} không tồn tại!")
         return
 
-    if os.path.exists(f"/var/www/{dest}"):
-        if force:
-            log_info(f"Site {dest} đã tồn tại, tiếp tục do có cờ --force...")
+    import os
+    if os.path.exists(dest_base):
+        if force or skip_create:
+            log_info(f"Site {dest_domain} đã tồn tại (hoặc bỏ qua tạo mới), tiếp tục...")
         else:
-            log_error(f"Site mới {dest} đã tồn tại. Thêm --force để ghi đè.")
+            log_error(f"Site mới {dest_domain} đã tồn tại. Thêm --force để ghi đè.")
             return
     else:
-        create_cmd = ["wo", "site", "create", dest, "--wp"]
-        if le: create_cmd.append("--le")
-        if force: create_cmd.append("--force")
-    
-        log_info(f"Đang tạo site mới {dest} bằng WordOps...")
-        # Sử dụng bash -lc để load toàn bộ biến môi trường của user
-        subprocess.run(['bash', '-lc', " ".join(create_cmd)])
+        if skip_create:
+            log_info(f"Đang tạo thư mục mới {dest_path} thủ công (Bỏ qua WordOps)...")
+            os.makedirs(dest_path, exist_ok=True)
+        else:
+            create_cmd = ["wo", "site", "create", dest_domain, "--wp"]
+            if le: create_cmd.append("--le")
+            if force: create_cmd.append("--force")
         
-        if not os.path.exists(f"/var/www/{dest}/htdocs"):
-            log_error(f"Quá trình tạo site mới {dest} thất bại.")
-            return
+            log_info(f"Đang tạo site mới {dest_domain} bằng WordOps...")
+            subprocess.run(['bash', '-lc', " ".join(create_cmd)])
+            
+            if not os.path.exists(dest_path):
+                log_error(f"Quá trình tạo site mới {dest_domain} thất bại.")
+                return
 
     log_info("Đang sao chép tệp tin từ site gốc sang site mới...")
     
-    has_config = os.path.exists(f"/var/www/{dest}/htdocs/wp-config.php")
+    has_config = os.path.exists(f"{dest_path}/wp-config.php")
     if has_config:
-        subprocess.run(f"cp /var/www/{dest}/htdocs/wp-config.php /tmp/wp-config-{dest}.php", shell=True)
-    has_root_config = os.path.exists(f"/var/www/{dest}/wp-config.php")
+        subprocess.run(f"cp {dest_path}/wp-config.php /tmp/wp-config-{dest_domain}.php", shell=True)
+    has_root_config = os.path.exists(f"{dest_base}/wp-config.php")
     if has_root_config:
-        subprocess.run(f"cp /var/www/{dest}/wp-config.php /tmp/wp-config-root-{dest}.php", shell=True)
+        subprocess.run(f"cp {dest_base}/wp-config.php /tmp/wp-config-root-{dest_domain}.php", shell=True)
         
-    subprocess.run(f"rm -rf /var/www/{dest}/htdocs/*", shell=True)
-    subprocess.run(f"rsync -a --exclude='wp-config.php' {source_path}/ /var/www/{dest}/htdocs/", shell=True)
+    subprocess.run(f"rm -rf {dest_path}/*", shell=True)
+    
+    if skip_create and not has_config and not has_root_config:
+        # Nếu skip_create và đích ko có wp-config, copy luon wp-config của source
+        subprocess.run(f"rsync -a {source_path}/ {dest_path}/", shell=True)
+    else:
+        subprocess.run(f"rsync -a --exclude='wp-config.php' {source_path}/ {dest_path}/", shell=True)
     
     if has_config:
-        subprocess.run(f"mv /tmp/wp-config-{dest}.php /var/www/{dest}/htdocs/wp-config.php", shell=True)
+        subprocess.run(f"mv /tmp/wp-config-{dest_domain}.php {dest_path}/wp-config.php", shell=True)
     if has_root_config:
-        subprocess.run(f"mv /tmp/wp-config-root-{dest}.php /var/www/{dest}/wp-config.php", shell=True)
+        subprocess.run(f"mv /tmp/wp-config-root-{dest_domain}.php {dest_base}/wp-config.php", shell=True)
 
     log_info("Đang chuyển đổi cơ sở dữ liệu (Database)...")
     subprocess.run(['bash', '-lc', f"wp db export /tmp/mme_clone_db.sql --path={source_path} --allow-root"])
-    subprocess.run(['bash', '-lc', f"wp db import /tmp/mme_clone_db.sql --path=/var/www/{dest}/htdocs --allow-root"])
+    subprocess.run(['bash', '-lc', f"wp db import /tmp/mme_clone_db.sql --path={dest_path} --allow-root"])
     if os.path.exists(f"/tmp/mme_clone_db.sql"):
         os.remove(f"/tmp/mme_clone_db.sql")
 
     log_info("Đang cập nhật URL tên miền trong Database...")
-    subprocess.run(['bash', '-lc', f"wp search-replace '//{source_domain}' '//{dest}' --all-tables --path=/var/www/{dest}/htdocs --allow-root"])
-    subprocess.run(['bash', '-lc', f"wp search-replace '{source_domain}' '{dest}' --all-tables --path=/var/www/{dest}/htdocs --allow-root"])
+    subprocess.run(['bash', '-lc', f"wp search-replace '//{source_domain}' '//{dest_domain}' --all-tables --path={dest_path} --allow-root"])
+    subprocess.run(['bash', '-lc', f"wp search-replace '{source_domain}' '{dest_domain}' --all-tables --path={dest_path} --allow-root"])
 
     log_info("Đang phân quyền thư mục và dọn dẹp cache...")
-    subprocess.run(f"chown -R www-data:www-data /var/www/{dest}/htdocs", shell=True)
+    subprocess.run(f"chown -R www-data:www-data {dest_path}", shell=True)
     subprocess.run(['bash', '-lc', "wo clean --all"])
 
     log_info(f"Thành công! Site {source} đã được nhân bản hoàn chỉnh sang {dest}.")
@@ -1741,6 +1761,7 @@ def main():
     site_clone.add_argument("new_domain", help="Tên miền mới")
     site_clone.add_argument("--le", action="store_true", help="Cài đặt luôn SSL cho site mới")
     site_clone.add_argument("--force", action="store_true", help="Ép buộc chạy lệnh bỏ qua cảnh báo")
+    site_clone.add_argument("--skip-create", action="store_true", help="Bỏ qua bước tạo site mới bằng WordOps (Dành cho web đã tạo sẵn hoặc ko dùng WordOps)")
     site_clone.set_defaults(func=cmd_site_clone)
     
     # site rename
