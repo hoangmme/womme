@@ -791,7 +791,10 @@ def cmd_site_clone(args):
     force = args.force
 
     if dest.startswith("/var/www/"):
-        dest = dest.replace("/var/www/", "").strip("/")
+        dest = dest.replace("/var/www/", "")
+    if dest.endswith("/htdocs"):
+        dest = dest.replace("/htdocs", "")
+    dest = dest.strip("/")
 
     log_info(f"Bắt đầu quá trình clone từ {source} sang {dest}...")
 
