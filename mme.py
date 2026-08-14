@@ -816,12 +816,15 @@ def cmd_site_clone(args):
             log_error(f"Site mới {dest} đã tồn tại. Thêm --force để ghi đè.")
             return
     else:
-        create_cmd = ["wo", "site", "create", dest, "--wp"]
+        create_cmd = ["/usr/local/bin/wo", "site", "create", dest, "--wp"]
         if le: create_cmd.append("--le")
         if force: create_cmd.append("--force")
     
         log_info(f"Đang tạo site mới {dest} bằng WordOps...")
-        subprocess.run(" ".join(create_cmd), shell=True)
+        import os
+        env = os.environ.copy()
+        env['PATH'] = '/usr/local/bin:' + env.get('PATH', '')
+        subprocess.run(" ".join(create_cmd), shell=True, env=env)
         
         if not os.path.exists(f"/var/www/{dest}/htdocs"):
             log_error(f"Quá trình tạo site mới {dest} thất bại.")
@@ -845,18 +848,18 @@ def cmd_site_clone(args):
         subprocess.run(f"mv /tmp/wp-config-root-{dest}.php /var/www/{dest}/wp-config.php", shell=True)
 
     log_info("Đang chuyển đổi cơ sở dữ liệu (Database)...")
-    subprocess.run(f"wp db export /tmp/mme_clone_db.sql --path={source_path} --allow-root", shell=True)
-    subprocess.run(f"wp db import /tmp/mme_clone_db.sql --path=/var/www/{dest}/htdocs --allow-root", shell=True)
+    subprocess.run(f"wp db export /tmp/mme_clone_db.sql --path={source_path} --allow-root", shell=True, env=env)
+    subprocess.run(f"wp db import /tmp/mme_clone_db.sql --path=/var/www/{dest}/htdocs --allow-root", shell=True, env=env)
     if os.path.exists(f"/tmp/mme_clone_db.sql"):
         os.remove(f"/tmp/mme_clone_db.sql")
 
     log_info("Đang cập nhật URL tên miền trong Database...")
-    subprocess.run(f"wp search-replace '//{source_domain}' '//{dest}' --all-tables --path=/var/www/{dest}/htdocs --allow-root", shell=True)
-    subprocess.run(f"wp search-replace '{source_domain}' '{dest}' --all-tables --path=/var/www/{dest}/htdocs --allow-root", shell=True)
+    subprocess.run(f"wp search-replace '//{source_domain}' '//{dest}' --all-tables --path=/var/www/{dest}/htdocs --allow-root", shell=True, env=env)
+    subprocess.run(f"wp search-replace '{source_domain}' '{dest}' --all-tables --path=/var/www/{dest}/htdocs --allow-root", shell=True, env=env)
 
     log_info("Đang phân quyền thư mục và dọn dẹp cache...")
     subprocess.run(f"chown -R www-data:www-data /var/www/{dest}/htdocs", shell=True)
-    subprocess.run("wo clean --all", shell=True)
+    subprocess.run("/usr/local/bin/wo clean --all", shell=True, env=env)
 
     log_info(f"Thành công! Site {source} đã được nhân bản hoàn chỉnh sang {dest}.")
 
