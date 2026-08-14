@@ -290,7 +290,10 @@ class WebhookHandler(BaseHTTPRequestHandler):
             url = url.strip().lower()
             url = url.replace("https://github.com/", "").replace("https://gitlab.com/", "")
             url = url.replace("git@github.com:", "").replace("git@gitlab.com:", "")
-            return url.rstrip("/").rstrip(".git").strip()
+            url = url.rstrip("/")
+            if url.endswith(".git"):
+                url = url[:-4]
+            return url.strip()
 
         webhook_repo_keys = [get_repo_key(u) for u in [repo_ssh_url, repo_html_url, repo_clone_url] if u]
         
@@ -307,7 +310,7 @@ class WebhookHandler(BaseHTTPRequestHandler):
                     
         if not matched_targets:
             if post_data:
-                log_message("system", f"⚠️ Đã nhận Webhook nhưng KHÔNG KHỚP repo nào! (Webhook repo: {webhook_repo_urls})")
+                log_message("system", f"⚠️ Đã nhận Webhook nhưng KHÔNG KHỚP repo nào! (Webhook repo: {webhook_repo_keys})")
             self.send_response(200)
             self.end_headers()
             self.wfile.write(b"Webhook received but no matching repository config found.")
