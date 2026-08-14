@@ -792,8 +792,15 @@ def cmd_site_clone(args):
 
     log_info(f"Bắt đầu quá trình clone từ {source} sang {dest}...")
 
-    if not os.path.exists(f"/var/www/{source}/htdocs"):
-        log_error(f"Site gốc {source} không tồn tại trong /var/www/")
+    if source.startswith("/"):
+        source_path = source.rstrip("/")
+        source_domain = source_path.split("/")[-1]
+    else:
+        source_path = f"/var/www/{source}/htdocs"
+        source_domain = source
+
+    if not os.path.exists(source_path):
+        log_error(f"Thư mục site gốc {source_path} không tồn tại!")
         return
 
     if os.path.exists(f"/var/www/{dest}"):
@@ -824,7 +831,7 @@ def cmd_site_clone(args):
         subprocess.run(f"cp /var/www/{dest}/wp-config.php /tmp/wp-config-root-{dest}.php", shell=True)
         
     subprocess.run(f"rm -rf /var/www/{dest}/htdocs/*", shell=True)
-    subprocess.run(f"rsync -a --exclude='wp-config.php' /var/www/{source}/htdocs/ /var/www/{dest}/htdocs/", shell=True)
+    subprocess.run(f"rsync -a --exclude='wp-config.php' {source_path}/ /var/www/{dest}/htdocs/", shell=True)
     
     if has_config:
         subprocess.run(f"mv /tmp/wp-config-{dest}.php /var/www/{dest}/htdocs/wp-config.php", shell=True)
@@ -832,14 +839,14 @@ def cmd_site_clone(args):
         subprocess.run(f"mv /tmp/wp-config-root-{dest}.php /var/www/{dest}/wp-config.php", shell=True)
 
     log_info("Đang chuyển đổi cơ sở dữ liệu (Database)...")
-    subprocess.run(f"wp db export /tmp/{source}.sql --path=/var/www/{source}/htdocs --allow-root", shell=True)
-    subprocess.run(f"wp db import /tmp/{source}.sql --path=/var/www/{dest}/htdocs --allow-root", shell=True)
-    if os.path.exists(f"/tmp/{source}.sql"):
-        os.remove(f"/tmp/{source}.sql")
+    subprocess.run(f"wp db export /tmp/mme_clone_db.sql --path={source_path} --allow-root", shell=True)
+    subprocess.run(f"wp db import /tmp/mme_clone_db.sql --path=/var/www/{dest}/htdocs --allow-root", shell=True)
+    if os.path.exists(f"/tmp/mme_clone_db.sql"):
+        os.remove(f"/tmp/mme_clone_db.sql")
 
     log_info("Đang cập nhật URL tên miền trong Database...")
-    subprocess.run(f"wp search-replace '//{source}' '//{dest}' --all-tables --path=/var/www/{dest}/htdocs --allow-root", shell=True)
-    subprocess.run(f"wp search-replace '{source}' '{dest}' --all-tables --path=/var/www/{dest}/htdocs --allow-root", shell=True)
+    subprocess.run(f"wp search-replace '//{source_domain}' '//{dest}' --all-tables --path=/var/www/{dest}/htdocs --allow-root", shell=True)
+    subprocess.run(f"wp search-replace '{source_domain}' '{dest}' --all-tables --path=/var/www/{dest}/htdocs --allow-root", shell=True)
 
     log_info("Đang phân quyền thư mục và dọn dẹp cache...")
     subprocess.run(f"chown -R www-data:www-data /var/www/{dest}/htdocs", shell=True)
