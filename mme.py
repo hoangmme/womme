@@ -1136,15 +1136,22 @@ def cmd_site_copy(args):
     with open(pub_key_path, "r") as f:
         pub_key = f.read().strip()
         
-    print("\n" + "="*64)
-    print(" BƯỚC 1: CẤP QUYỀN Ở VPS ĐÍCH")
-    print("="*64)
-    print(f"Bạn hãy mở một phần mềm SSH mới, đăng nhập vào VPS đích ({ip})")
-    print("sau đó copy và dán đoạn lệnh dưới đây vào rồi nhấn Enter:")
-    print(f"\\nmkdir -p ~/.ssh && chmod 700 ~/.ssh && echo '{pub_key}' >> ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys\\n")
-    print("="*64)
+    # Kiểm tra xem có SSH được luôn chưa
+    test_ssh = ["ssh", "-p", port, "-o", "StrictHostKeyChecking=no", "-o", "BatchMode=yes", "-o", "ConnectTimeout=5", "-i", "/root/.ssh/id_ed25519", f"{user}@{ip}", "echo SSH_OK"]
+    res_test = subprocess.run(test_ssh, capture_output=True, text=True)
     
-    input("BƯỚC 2: Sau khi đã chạy lệnh trên ở VPS đích, hãy nhấn Enter tại đây để bắt đầu clone...")
+    if "SSH_OK" not in res_test.stdout:
+        print("\\n" + "="*64)
+        print(" BƯỚC 1: CẤP QUYỀN Ở VPS ĐÍCH")
+        print("="*64)
+        print(f"Bạn hãy mở một phần mềm SSH mới, đăng nhập vào VPS đích ({ip})")
+        print("sau đó copy và dán đoạn lệnh dưới đây vào rồi nhấn Enter:")
+        print(f"\\n\\nmkdir -p ~/.ssh && chmod 700 ~/.ssh && echo '{pub_key}' >> ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys\\n\\n")
+        print("="*64)
+        
+        input("BƯỚC 2: Sau khi đã chạy lệnh trên ở VPS đích, hãy nhấn Enter tại đây để tiếp tục...")
+    else:
+        log_info(f"Đã kết nối được SSH tới {ip} (bỏ qua bước cấp quyền).")
     
     log_info(f"Đang kiểm tra kết nối và tạo thư mục đích tại {user}@{ip}...")
     mkdir_cmd = ["ssh", "-p", port, "-o", "StrictHostKeyChecking=no", "-i", "/root/.ssh/id_ed25519", f"{user}@{ip}", f"mkdir -p {dest_dir}"]
@@ -1712,17 +1719,24 @@ def cmd_copy(args):
     with open(pub_key_path, "r") as f:
         pub_key = f.read().strip()
         
-    print("\\n" + "="*64)
-    print(" BƯỚC 1: CẤP QUYỀN Ở VPS ĐÍCH")
-    print("="*64)
-    print(f"Bạn hãy mở một phần mềm SSH mới, đăng nhập vào VPS đích ({ip})")
-    print("sau đó copy và dán đoạn lệnh dưới đây vào rồi nhấn Enter:")
-    print(f"\nmkdir -p ~/.ssh && chmod 700 ~/.ssh && echo '{pub_key}' >> ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys\n")
-    print("="*64)
+    # Kiểm tra xem có SSH được luôn chưa
+    test_ssh = ["ssh", "-p", port, "-o", "StrictHostKeyChecking=no", "-o", "BatchMode=yes", "-o", "ConnectTimeout=5", "-i", "/root/.ssh/id_ed25519", f"{user}@{ip}", "echo SSH_OK"]
+    res_test = subprocess.run(test_ssh, capture_output=True, text=True)
     
-    input("BƯỚC 2: Sau khi đã chạy lệnh trên ở VPS đích, hãy nhấn Enter tại đây để bắt đầu copy...")
+    if "SSH_OK" not in res_test.stdout:
+        print("\\n" + "="*64)
+        print(" BƯỚC 1: CẤP QUYỀN Ở VPS ĐÍCH")
+        print("="*64)
+        print(f"Bạn hãy mở một phần mềm SSH mới, đăng nhập vào VPS đích ({ip})")
+        print("sau đó copy và dán đoạn lệnh dưới đây vào rồi nhấn Enter:")
+        print(f"\\n\\nmkdir -p ~/.ssh && chmod 700 ~/.ssh && echo '{pub_key}' >> ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys\\n\\n")
+        print("="*64)
+        
+        input("BƯỚC 2: Sau khi đã chạy lệnh trên ở VPS đích, hãy nhấn Enter tại đây để tiếp tục...")
+    else:
+        log_info(f"Đã kết nối được SSH tới {ip} (bỏ qua bước cấp quyền).")
     
-    log_info(f"Đang tạo trước thư mục đích tại {user}@{ip}...")
+    log_info(f"Đang kiểm tra kết nối và tạo thư mục đích tại {user}@{ip}...")
     mkdir_cmd = ["ssh", "-p", port, "-o", "StrictHostKeyChecking=no", "-i", "/root/.ssh/id_ed25519", f"{user}@{ip}", f"mkdir -p {dest_dir}"]
     res = subprocess.run(mkdir_cmd)
     if res.returncode != 0:
