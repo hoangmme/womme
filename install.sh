@@ -100,7 +100,7 @@ _mme_completion() {
             deploy)
                 case "$subcmd" in
                     push|edit|pull|rollback|logs|delete)
-                        COMPREPLY=( $(compgen -W "$domains" -- "$cur") )
+                        COMPREPLY=( $(compgen -W "$domains all" -- "$cur") )
                         ;;
                 esac
                 ;;
@@ -143,7 +143,7 @@ echo -e " \e[96mmme deploy list\e[0m              (Xem danh sách Auto Deploy)"
 echo -e " \e[96mmme deploy pull <domain>\e[0m     (Chạy Deploy thủ công)"
 echo -e " \e[96mmme deploy rollback <domain>\e[0m (Khôi phục bản cũ)"
 echo -e " \e[96mmme deploy logs <domain>\e[0m     (Xem nhật ký Deploy)"
-echo -e " \e[96mmme deploy delete <domain>\e[0m   (Xóa cấu hình Deploy)"
+echo -e " \e[96mmme deploy delete [domain]\e[0m   (Xóa cấu hình Auto Deploy)"
 echo -e " \e[96mmme site pause <domain>\e[0m      (Bật chế độ bảo trì)"
 echo -e " \e[96mmme site start <domain>\e[0m      (Tắt chế độ bảo trì)"
 echo -e " \e[96mmme site lockon <domain>\e[0m     (Bật khóa bảo mật site)"

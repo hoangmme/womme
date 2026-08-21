@@ -82,6 +82,13 @@ Trong trường hợp bản code mới bị lỗi sập site, gõ lệnh này đ
 mme deploy rollback mme.vn
 ```
 
+### 7. Xóa cấu hình Deploy (`delete`)
+Xóa cấu hình Git Auto Deploy của một domain hoặc toàn bộ hệ thống:
+```bash
+mme deploy delete domain.com
+```
+*(Nếu bạn gõ `mme deploy delete` mà không kèm tên miền, công cụ sẽ hiển thị danh sách đánh số để bạn chọn domain cần xóa, hoặc chọn xóa tất cả. Ngoài ra hệ thống sẽ hỗ trợ tự động gỡ Symlink để giữ lại code hiện tại thành thư mục thực và dọn dẹp các bản release cũ).*
+
 ---
 
 ## 🛠 Tính năng bổ trợ

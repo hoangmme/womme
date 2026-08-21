@@ -1,18 +1,26 @@
-#!/bin/bash
+#!/usr/bin/env bash
+# Script hỗ trợ đẩy nhanh code thay đổi lên Git
 
-# Lấy tham số đầu tiên làm commit message, nếu không có thì dùng "Update"
-MSG=${1:-"Update"}
+if [ -z "$1" ]; then
+  echo "❌ Lỗi: Bạn chưa nhập nội dung commit!"
+  echo "👉 Cách dùng: ./deploy-git.sh \"nội dung commit thay đổi\""
+  exit 1
+fi
 
-echo "🚀 Bắt đầu push code cho womme với message: '$MSG'"
-echo "---------------------------------------------------------------"
+COMMIT_MSG="$*"
 
-# Thêm tất cả thay đổi
+echo "🚀 [1/3] Thêm toàn bộ các file thay đổi vào staging (git add .)..."
 git add .
 
-# Commit
-git commit -m "$MSG"
+echo "💬 [2/3] Tạo commit với thông điệp: \"$COMMIT_MSG\"..."
+git commit -m "$COMMIT_MSG"
 
-# Push lên git
+echo "⬆️ [3/3] Đẩy code lên Remote Repository (git push)..."
 git push
 
-echo "✅ Đã push womme thành công!"
+if [ $? -eq 0 ]; then
+  echo "✅ Đã đẩy code lên Git thành công!"
+else
+  echo "⚠️ Lưu ý: Nếu lệnh git push thất bại, hãy kiểm tra kết nối mạng hoặc quyền repository."
+  exit 1
+fi

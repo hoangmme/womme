@@ -6,6 +6,7 @@ import subprocess
 import argparse
 import sys
 import pwd
+import shutil
 from datetime import datetime
 
 DEPLOY_CONFIG_FILE = "/etc/wo/mme-deploy.json"
@@ -485,57 +486,169 @@ def cmd_deploy_edit(args):
     print("   - Content type: application/json")
     print("="*64 + "\\n")
 
+def cleanup_deploy_symlink_and_releases(domain, conf=None):
+    try:
+        site_root = f"/var/www/{domain}"
+        if not os.path.exists(site_root):
+            return
+            
+        target_path = conf.get("path", "").strip("/") if conf else ""
+        if target_path in ["", ".", "htdocs"]:
+            symlink_target = f"{site_root}/htdocs"
+            releases_dir = f"{site_root}/mme-releases/htdocs"
+        else:
+            target_name = os.path.basename(target_path)
+            symlink_target = f"{site_root}/htdocs/{target_path}"
+            releases_dir = f"{site_root}/mme-releases/{target_name}"
+
+        # 1. Nếu symlink_target đang là Symlink -> chuyển thành thư mục thực với nội dung hiện tại
+        if os.path.islink(symlink_target):
+            real_path = os.path.realpath(symlink_target)
+            if os.path.exists(real_path):
+                log_info(f"Đang chuyển đổi Symlink {symlink_target} thành thư mục thực...")
+                tmp_dir = f"{symlink_target}_tmp_extract"
+                if os.path.exists(tmp_dir):
+                    shutil.rmtree(tmp_dir, ignore_errors=True)
+                shutil.copytree(real_path, tmp_dir, symlinks=False)
+                os.remove(symlink_target)
+                os.rename(tmp_dir, symlink_target)
+                subprocess.run(["chown", "-R", "www-data:www-data", symlink_target], check=False)
+                log_info(f"✅ Đã giữ lại source code hiện tại thành thư mục thực: {symlink_target}")
+
+        # 2. Dọn dẹp thư mục releases tương ứng
+        if os.path.exists(releases_dir):
+            shutil.rmtree(releases_dir, ignore_errors=True)
+            log_info(f"✅ Đã dọn dẹp thư mục releases: {releases_dir}")
+            
+        # Nếu thư mục mme-releases trống thì xóa luôn
+        main_releases_dir = f"{site_root}/mme-releases"
+        if os.path.exists(main_releases_dir) and not os.listdir(main_releases_dir):
+            shutil.rmtree(main_releases_dir, ignore_errors=True)
+    except Exception as e:
+        log_error(f"Lỗi khi dọn dẹp symlink/releases: {e}")
+
 def cmd_deploy_delete(args):
     config = load_config()
-    if args.domain not in config:
-        log_error(f"Domain {args.domain} chưa có cấu hình deploy nào.")
+    if not config:
+        log_info("Hiện tại không có cấu hình deploy nào trên hệ thống.")
         return
         
-    conf_list = config[args.domain]
+    domain = getattr(args, "domain", None)
+    
+    # Nếu không nhập domain -> hiển thị menu chọn domain
+    if not domain:
+        print("\n\033[96mDanh sách các domain đang cấu hình Auto Deploy:\033[0m")
+        domain_list = list(config.keys())
+        for i, dom in enumerate(domain_list):
+            conf = config[dom]
+            count = len(conf) if isinstance(conf, list) else 1
+            print(f"  [{i+1}] \033[1m{dom}\033[0m ({count} cấu hình)")
+        print(f"  [{len(domain_list)+1}] \033[91mXóa TOÀN BỘ cấu hình deploy của TẤT CẢ domain\033[0m")
+        print("  [0] Hủy bỏ")
+        
+        while True:
+            try:
+                choice = input(f"\nNhập số thứ tự domain muốn xóa (0-{len(domain_list)+1}): ").strip()
+                if not choice:
+                    continue
+                choice = int(choice)
+                if choice == 0:
+                    print("Đã hủy bỏ.")
+                    return
+                elif choice == len(domain_list) + 1:
+                    domain = "all"
+                    break
+                elif 1 <= choice <= len(domain_list):
+                    domain = domain_list[choice - 1]
+                    break
+                else:
+                    print("Lựa chọn không hợp lệ. Vui lòng nhập lại.")
+            except ValueError:
+                print("Vui lòng chỉ nhập số.")
+
+    if domain in ["all", "--all", "-a"]:
+        ans = input("⚠️ Bạn có chắc muốn xóa TOÀN BỘ cấu hình deploy của TẤT CẢ domain? [y/N]: ").strip().lower()
+        if ans == 'y':
+            ans_clean = input("Bạn có muốn gỡ Symlink (chuyển code hiện tại thành thư mục thực) và dọn dẹp releases cho tất cả các site? [y/N]: ").strip().lower()
+            for dom, conf_item in list(config.items()):
+                if ans_clean == 'y':
+                    conf_arr = conf_item if isinstance(conf_item, list) else [conf_item]
+                    for c in conf_arr:
+                        cleanup_deploy_symlink_and_releases(dom, c)
+            save_config({})
+            log_info("✅ Đã xóa toàn bộ cấu hình deploy của tất cả domain.")
+        return
+
+    if domain not in config:
+        log_error(f"Domain {domain} chưa có cấu hình deploy nào.")
+        return
+        
+    conf_list = config[domain]
     if isinstance(conf_list, dict):
         conf_list = [conf_list]
         
     if len(conf_list) == 1:
-        ans = input(f"Bạn có chắc muốn xóa cấu hình deploy của {args.domain}? [y/N]: ").strip().lower()
+        c = conf_list[0]
+        print(f"\nThông tin deploy của \033[96m{domain}\033[0m:")
+        print(f"  - Repo: {c.get('repo', '')}")
+        print(f"  - Branch: {c.get('branch', 'main')}")
+        print(f"  - Path: {c.get('path', 'htdocs')}")
+        ans = input(f"\nBạn có chắc muốn xóa cấu hình deploy của {domain}? [y/N]: ").strip().lower()
         if ans == 'y':
-            del config[args.domain]
+            ans_clean = input("Bạn có muốn gỡ Symlink (chuyển code hiện tại thành thư mục thực) và dọn dẹp releases cũ? [y/N]: ").strip().lower()
+            if ans_clean == 'y':
+                cleanup_deploy_symlink_and_releases(domain, c)
+            del config[domain]
             save_config(config)
-            log_info(f"Đã xóa toàn bộ cấu hình deploy của {args.domain}.")
+            log_info(f"✅ Đã xóa toàn bộ cấu hình deploy của {domain}.")
     else:
-        print(f"\nDomain \033[96m{args.domain}\033[0m đang có {len(conf_list)} cấu hình:")
+        print(f"\nDomain \033[96m{domain}\033[0m đang có {len(conf_list)} cấu hình deploy:")
         for i, conf in enumerate(conf_list):
-            print(f"  [{i+1}] Repo: {conf.get('repo', '')} -> Path: {conf.get('path', 'htdocs')}")
+            print(f"  [{i+1}] Repo: {conf.get('repo', '')} -> Path: {conf.get('path', 'htdocs')} (Branch: {conf.get('branch', 'main')})")
         print(f"  [{len(conf_list)+1}] \033[91mXóa toàn bộ cấu hình của domain này\033[0m")
         print("  [0] Hủy bỏ")
         
         while True:
             try:
-                choice = int(input(f"Nhập số thứ tự cấu hình muốn xóa (0-{len(conf_list)+1}): ").strip())
+                choice = input(f"\nNhập số thứ tự cấu hình muốn xóa (0-{len(conf_list)+1}): ").strip()
+                if not choice:
+                    continue
+                choice = int(choice)
                 if choice == 0:
                     print("Đã hủy bỏ.")
                     return
                 elif choice == len(conf_list) + 1:
-                    ans = input(f"Bạn có chắc muốn xóa TOÀN BỘ cấu hình của {args.domain}? [y/N]: ").strip().lower()
+                    ans = input(f"Bạn có chắc muốn xóa TOÀN BỘ {len(conf_list)} cấu hình của {domain}? [y/N]: ").strip().lower()
                     if ans == 'y':
-                        del config[args.domain]
+                        ans_clean = input("Bạn có muốn gỡ Symlink (chuyển code hiện tại thành thư mục thực) và dọn dẹp releases cũ? [y/N]: ").strip().lower()
+                        if ans_clean == 'y':
+                            for c in conf_list:
+                                cleanup_deploy_symlink_and_releases(domain, c)
+                        del config[domain]
                         save_config(config)
-                        log_info(f"Đã xóa toàn bộ cấu hình deploy của {args.domain}.")
+                        log_info(f"✅ Đã xóa toàn bộ cấu hình deploy của {domain}.")
                     return
                 elif 1 <= choice <= len(conf_list):
                     idx = choice - 1
-                    deleted_repo = conf_list[idx].get('repo', '')
+                    deleted_conf = conf_list[idx]
+                    deleted_repo = deleted_conf.get('repo', '')
                     ans = input(f"Xác nhận xóa cấu hình [{choice}] ({deleted_repo})? [y/N]: ").strip().lower()
                     if ans == 'y':
+                        ans_clean = input("Bạn có muốn gỡ Symlink (chuyển code hiện tại thành thư mục thực) và dọn dẹp releases cũ của mục này? [y/N]: ").strip().lower()
+                        if ans_clean == 'y':
+                            cleanup_deploy_symlink_and_releases(domain, deleted_conf)
                         conf_list.pop(idx)
                         if len(conf_list) == 0:
-                            del config[args.domain]
+                            del config[domain]
                         else:
-                            config[args.domain] = conf_list
+                            config[domain] = conf_list
                         save_config(config)
-                        log_info(f"Đã xóa cấu hình [{choice}] của {args.domain}.")
+                        log_info(f"✅ Đã xóa cấu hình [{choice}] của {domain}.")
                     return
-            except:
-                pass
+                else:
+                    print("Lựa chọn không hợp lệ. Vui lòng nhập lại.")
+            except ValueError:
+                print("Vui lòng chỉ nhập số.")
 
 def cmd_deploy_list(args):
     config = load_config()
@@ -1078,6 +1191,7 @@ CUSTOM_HELP = """
  \033[96mmme deploy pull <domain>\033[0m     (Chạy Deploy thủ công)
  \033[96mmme deploy rollback <domain>\033[0m (Khôi phục bản cũ)
  \033[96mmme deploy logs <domain>\033[0m     (Xem nhật ký Deploy)
+ \033[96mmme deploy delete [domain]\033[0m   (Xóa cấu hình Auto Deploy)
  \033[96mmme site pause <domain>\033[0m      (Bật chế độ bảo trì)
  \033[96mmme site start <domain>\033[0m      (Tắt chế độ bảo trì)
  \033[96mmme site lockon <domain>\033[0m     (Bật khóa bảo mật site)
@@ -1855,7 +1969,7 @@ def main():
     
     # deploy delete
     deploy_delete = deploy_sub.add_parser("delete", help="Xóa cấu hình deploy")
-    deploy_delete.add_argument("domain", help="Tên miền")
+    deploy_delete.add_argument("domain", nargs="?", default=None, help="Tên miền (bỏ trống để chọn danh sách, hoặc 'all' để xóa hết)")
     deploy_delete.set_defaults(func=cmd_deploy_delete)
     
     # --- site ---

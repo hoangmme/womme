@@ -346,10 +346,10 @@ class WOMMEDeployController(CementBaseController):
             (['--branch'], dict(help='Branch cần deploy (Mặc định: main)')),
             (['--path'], dict(help='Đường dẫn thư mục đích trong htdocs (VD: wp-content/themes/mme hoặc /)')),
             (['--build'], dict(help='Lệnh build chạy sau khi clone (VD: "npm ci && npm run build")')),
-            (['domain'], dict(nargs='?', help='Tên miền (cho lệnh add, run, rollback, logs)')),
+            (['domain'], dict(nargs='?', help='Tên miền (cho lệnh add, run, rollback, logs, delete)')),
         ]
 
-    @expose(help="Quản lý job auto deploy (wo mme deploy <add|list|run|rollback|logs>)")
+    @expose(help="Quản lý job auto deploy (wo mme deploy <add|list|run|rollback|logs|delete>)")
     def default(self):
         self.app.args.print_help()
 
@@ -435,6 +435,89 @@ class WOMMEDeployController(CementBaseController):
             subprocess.run(["tail", "-n", "50", log_file])
         else:
             Log.info(self, f"Chưa có nhật ký deploy nào cho {domain}.")
+
+    @expose(help="Xóa cấu hình auto deploy cho tên miền (wo mme deploy delete <domain>)")
+    def delete(self):
+        domain = self.app.pargs.domain
+        config = load_config()
+        if not config:
+            Log.info(self, "Chưa có cấu hình deploy nào trên hệ thống.")
+            return
+
+        if not domain:
+            Log.info(self, "Danh sách cấu hình Git Auto Deploy:")
+            domains = list(config.keys())
+            for i, d in enumerate(domains):
+                print(f"  [{i+1}] {d}")
+            print(f"  [{len(domains)+1}] Xóa toàn bộ cấu hình")
+            print("  [0] Hủy bỏ")
+            try:
+                choice = input(f"Nhập số thứ tự domain muốn xóa (0-{len(domains)+1}): ").strip()
+                if not choice or choice == "0":
+                    Log.info(self, "Đã hủy bỏ.")
+                    return
+                choice = int(choice)
+                if choice == len(domains) + 1:
+                    ans = input("Bạn có chắc muốn xóa TOÀN BỘ cấu hình deploy? [y/N]: ").strip().lower()
+                    if ans == 'y':
+                        save_config({})
+                        Log.info(self, "Đã xóa toàn bộ cấu hình deploy.")
+                    return
+                elif 1 <= choice <= len(domains):
+                    domain = domains[choice - 1]
+                else:
+                    Log.error(self, "Lựa chọn không hợp lệ.")
+                    return
+            except Exception:
+                Log.error(self, "Lỗi lựa chọn.")
+                return
+
+        if domain in ["all", "--all"]:
+            ans = input("Bạn có chắc muốn xóa TOÀN BỘ cấu hình deploy? [y/N]: ").strip().lower()
+            if ans == 'y':
+                save_config({})
+                Log.info(self, "Đã xóa toàn bộ cấu hình deploy.")
+            return
+
+        if domain not in config:
+            Log.error(self, f"Domain {domain} chưa có cấu hình deploy nào.")
+            return
+
+        conf_list = config[domain]
+        if isinstance(conf_list, list) and len(conf_list) > 1:
+            print(f"Domain {domain} đang có {len(conf_list)} cấu hình:")
+            for i, conf in enumerate(conf_list):
+                print(f"  [{i+1}] Repo: {conf.get('repo', '')} -> Path: {conf.get('path', 'htdocs')}")
+            print(f"  [{len(conf_list)+1}] Xóa toàn bộ cấu hình của domain này")
+            print("  [0] Hủy bỏ")
+            try:
+                choice = input(f"Nhập số thứ tự cấu hình muốn xóa (0-{len(conf_list)+1}): ").strip()
+                if not choice or choice == "0":
+                    return
+                choice = int(choice)
+                if choice == len(conf_list) + 1:
+                    ans = input(f"Bạn có chắc muốn xóa TOÀN BỘ cấu hình của {domain}? [y/N]: ").strip().lower()
+                    if ans == 'y':
+                        del config[domain]
+                        save_config(config)
+                        Log.info(self, f"Đã xóa toàn bộ cấu hình deploy của {domain}.")
+                    return
+                elif 1 <= choice <= len(conf_list):
+                    idx = choice - 1
+                    conf_list.pop(idx)
+                    config[domain] = conf_list
+                    save_config(config)
+                    Log.info(self, f"Đã xóa cấu hình [{choice}] của {domain}.")
+                    return
+            except Exception:
+                Log.error(self, "Lựa chọn không hợp lệ.")
+                return
+        else:
+            ans = input(f"Bạn có chắc muốn xóa cấu hình deploy của {domain}? [y/N]: ").strip().lower()
+            if ans == 'y':
+                del config[domain]
+                save_config(config)
+                Log.info(self, f"Đã xóa toàn bộ cấu hình deploy của {domain}.")
 
 def load(app):
     app.handler.register(WOSiteCloneController)
