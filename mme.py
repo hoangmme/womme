@@ -10,6 +10,7 @@ import shutil
 from datetime import datetime
 
 DEPLOY_CONFIG_FILE = "/etc/wo/mme-deploy.json"
+MME_VERSION = "1.2.0"
 
 MAINTENANCE_HTML = """<!DOCTYPE html>
 <html lang="vi">
@@ -1202,6 +1203,7 @@ CUSTOM_HELP = """
  \033[96mmme site rename <old> <new>\033[0m  (Đổi tên miền website)
  \033[96mmme db\033[0m                       (Sửa cấu hình MySQL/MariaDB)
  \033[96mmme core [domain]\033[0m              (Cài WPMMe & MMeForm cho 1 hoặc tất cả web)
+ \033[96mmme status\033[0m                   (Kiểm tra trạng thái MMe & Daemon)
  \033[96mmme update\033[0m                   (Cập nhật MMe CLI lên bản mới nhất)
  
  \033[90mGõ `mme <lệnh> --help` để xem chi tiết cách dùng của một nhóm lệnh.\033[0m
@@ -1744,6 +1746,90 @@ def cmd_core(args):
     subprocess.run(["bash", "-lc", "wo clean --all"], capture_output=True)
     log_info("Hoàn tất lệnh mme core!")
 
+def cmd_status(args):
+    print("\n" + "\033[96m="*55 + "\033[0m")
+    print("\033[1;92m   🔍 KIỂM TRA TRẠNG THÁI HỆ THỐNG MME TOOL & VPS\033[0m")
+    print("\033[96m="*55 + "\033[0m\n")
+
+    # 1. Phiên bản MMe Tool
+    print("\033[1;33m[1] Phiên bản MMe CLI:\033[0m")
+    print(f"  - Phiên bản hiện tại: \033[1;36mv{MME_VERSION}\033[0m")
+    try:
+        res = subprocess.run(["git", "ls-remote", "https://github.com/hoangmme/womme.git", "HEAD"], capture_output=True, text=True, timeout=5)
+        if res.returncode == 0 and res.stdout:
+            remote_commit = res.stdout.strip().split()[0][:7]
+            print(f"  - GitHub Remote HEAD: \033[90m{remote_commit}\033[0m")
+            print("  - Trạng thái kết nối: \033[92m✅ Đã kết nối kho mã nguồn GitHub\033[0m")
+        else:
+            print("  - Trạng thái kết nối: \033[93m⚠️ Không thể kiểm tra Git Remote (Timeout hoặc mất mạng)\033[0m")
+    except Exception:
+        print("  - Trạng thái kết nối: \033[93m⚠️ Không thể kiểm tra Git Remote\033[0m")
+
+    # 2. Trạng thái Webhook Daemon (womme-daemon.service)
+    print("\n\033[1;33m[2] Trạng thái Dịch vụ Webhook Daemon (womme-daemon):\033[0m")
+    daemon_active = False
+    try:
+        res = subprocess.run(["systemctl", "is-active", "womme-daemon"], capture_output=True, text=True)
+        status_text = res.stdout.strip()
+        if status_text == "active":
+            daemon_active = True
+            print("  - Dịch vụ: \033[92m● Đang chạy (Active / Lắng nghe port 8989)\033[0m")
+        else:
+            print(f"  - Dịch vụ: \033[91m● ĐÃ DỪNG ({status_text if status_text else 'inactive'})\033[0m")
+    except FileNotFoundError:
+        print("  - Dịch vụ: \033[90m(Không tìm thấy systemctl trên môi trường này)\033[0m")
+    except Exception as e:
+        print(f"  - Dịch vụ: \033[91m● Lỗi kiểm tra: {e}\033[0m")
+
+    if not daemon_active:
+        print("  \033[91m⚠️ CẢNH BÁO: Webhook Daemon chưa chạy! Webhook GitHub sẽ không kích hoạt tự động được.\033[0m")
+        print("  \033[96m👉 Cách khởi động lại:\033[0m")
+        print("     \033[1;37msystemctl restart womme-daemon\033[0m")
+        print("     \033[1;37msystemctl status womme-daemon\033[0m  (xem log chi tiết)")
+        print("     \033[1;37msystemctl enable womme-daemon\033[0m  (bật tự khởi động cùng VPS)")
+
+    # 3. Trạng thái Nginx & WordOps
+    print("\n\033[1;33m[3] Trạng thái Máy chủ Web (Nginx):\033[0m")
+    try:
+        res = subprocess.run(["systemctl", "is-active", "nginx"], capture_output=True, text=True)
+        if res.stdout.strip() == "active":
+            print("  - Nginx:   \033[92m● Đang hoạt động (Active)\033[0m")
+        else:
+            print(f"  - Nginx:   \033[91m● ĐÃ DỪNG ({res.stdout.strip()})\033[0m -> Gõ `wo stack restart --nginx`")
+    except Exception:
+        print("  - Nginx:   \033[90m(Không thể kiểm tra)\033[0m")
+
+    # 4. Trạng thái SSH Key Deploy
+    print("\n\033[1;33m[4] Trạng thái SSH Key Deploy (GitHub/GitLab):\033[0m")
+    pub_key_path = "/root/.ssh/id_ed25519.pub"
+    if os.path.exists(pub_key_path):
+        print("  - SSH Key: \033[92m✅ Đã khởi tạo (/root/.ssh/id_ed25519.pub)\033[0m")
+        try:
+            res = subprocess.run(["ssh", "-T", "-o", "StrictHostKeyChecking=no", "-i", "/root/.ssh/id_ed25519", "-o", "ConnectTimeout=5", "-o", "BatchMode=yes", "git@github.com"], capture_output=True, text=True)
+            if "successfully authenticated" in res.stdout or "successfully authenticated" in res.stderr:
+                print("  - GitHub Auth: \033[92m✅ Kết nối & xác thực thành công\033[0m")
+            else:
+                print("  - GitHub Auth: \033[93m⚠️ Chưa add Deploy Key lên GitHub hoặc chưa có repo cấp quyền\033[0m")
+        except Exception:
+            pass
+    else:
+        print("  - SSH Key: \033[91m❌ Chưa tạo SSH Key\033[0m (Gõ `mme deploy push <domain>` để tự tạo)")
+
+    # 5. Tổng quan Auto Deploy
+    config = load_config()
+    print("\n\033[1;33m[5] Tổng quan Auto Deploy:\033[0m")
+    if config:
+        total_domains = len(config)
+        total_jobs = sum(len(v) if isinstance(v, list) else 1 for v in config.values())
+        print(f"  - Đang quản lý: \033[1;36m{total_domains}\033[0m domain (\033[1;36m{total_jobs}\033[0m job auto deploy)")
+        print("  - Gõ \033[96mmme deploy list\033[0m để xem chi tiết từng website.")
+    else:
+        print("  - Chưa có domain nào được cấu hình deploy. Gõ \033[96mmme deploy push <domain>\033[0m để thêm mới.")
+
+    print("\n" + "\033[96m="*55 + "\033[0m")
+    print(" \033[90mGõ `mme update` để nâng cấp tool lên phiên bản mới nhất từ GitHub.\033[0m")
+    print("\033[96m="*55 + "\033[0m\n")
+
 def cmd_update(args):
     log_info("Đang cập nhật MMe CLI Tool lên phiên bản mới nhất từ GitHub...")
     cmd = "curl -sL https://raw.githubusercontent.com/hoangmme/womme/main/install.sh | bash"
@@ -1752,7 +1838,7 @@ def cmd_update(args):
         log_info("Đã cập nhật thành công!")
         print(result.stdout)
     else:
-        log_error(f"Lỗi khi cập nhật:\\n{result.stderr}")
+        log_error(f"Lỗi khi cập nhật:\n{result.stderr}")
 
 def cmd_db(args):
     log_info("Đang mở file cấu hình MySQL (/etc/mysql/conf.d/my.cnf)...")
@@ -1914,6 +2000,10 @@ def main():
     # --- update ---
     update_parser = subparsers.add_parser("update", help="Cập nhật MMe CLI Tool lên phiên bản mới nhất")
     update_parser.set_defaults(func=cmd_update)
+    
+    # --- status ---
+    status_parser = subparsers.add_parser("status", help="Kiểm tra trạng thái hoạt động của MMe Tool & VPS")
+    status_parser.set_defaults(func=cmd_status)
     
     # --- role ---
     role_parser = subparsers.add_parser("role", help="Tự động cấp quyền 644/755/www-data cho thư mục hiện tại")

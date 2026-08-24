@@ -154,7 +154,14 @@ mme site migrate old-domain.com new-domain.com
 ```
 Làm theo các bước hiện ra trên màn hình để chuyển dữ liệu mà không lo bị ngắt kết nối hay lỗi phân quyền.
 
-### 10. Cập nhật MMe CLI Tool (`update`)
+### 10. Kiểm tra trạng thái hệ thống (`status`)
+Kiểm tra sức khỏe hệ thống, phiên bản MMe CLI, trạng thái dịch vụ Webhook Daemon (`womme-daemon`), Nginx, kết nối SSH Deploy Key và tổng quan auto-deploy:
+```bash
+mme status
+```
+*(Nếu dịch vụ Webhook Daemon bị tắt hoặc gặp lỗi, lệnh sẽ lập tức cảnh báo và hướng dẫn lệnh restart cụ thể).*
+
+### 11. Cập nhật MMe CLI Tool (`update`)
 Cập nhật công cụ `mme` trên server của bạn lên phiên bản mới nhất từ Github:
 ```bash
 mme update

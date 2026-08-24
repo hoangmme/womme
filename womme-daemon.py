@@ -113,7 +113,7 @@ def process_deploy(domain, config, trigger_type="Thủ công (mme deploy pull)")
             return False
             
         # Lưu thông tin commit hiện tại để hiển thị cho lệnh mme deploy list
-        run_cmd("git log -1 --format='%cd - %s' --date=relative > .mme_commit", cwd=new_release_dir)
+        run_cmd("git log -1 --format='%cd (%cr) - %s' --date=format:'%Y-%m-%d %H:%M:%S' > .mme_commit", cwd=new_release_dir)
         run_cmd("git rev-parse HEAD > .mme_hash", cwd=new_release_dir)
         with open(f"{new_release_dir}/.mme_trigger", "w") as tf:
             tf.write(trigger_type)

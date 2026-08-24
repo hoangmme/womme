@@ -67,7 +67,7 @@ _mme_completion() {
         prev="${words[cword-1]}"
     }
 
-    local commands="deploy site role copy db update port"
+    local commands="deploy site role copy db update port core status"
     local deploy_commands="push pull edit list rollback logs delete"
     local site_commands="pause start lockon lockoff clone rename wpmme thememme mmeform migrate"
     
@@ -156,6 +156,7 @@ echo -e " \e[96mmme port <num>\e[0m               (Thay đổi port SSH của VP
 echo -e " \e[96mmme db\e[0m                       (Sửa cấu hình MySQL/MariaDB)"
 echo -e " \e[96mmme site migrate <old> <new>\e[0m (Di chuyển website sang VPS khác)"
 echo -e " \e[96mmme core [domain]\e[0m              (Cài WPMMe & MMeForm cho 1 hoặc tất cả web)"
+echo -e " \e[96mmme status\e[0m                   (Kiểm tra trạng thái MMe & Daemon)"
 echo -e " \e[96mmme update\e[0m                   (Cập nhật MMe CLI lên bản mới nhất)"
 echo ""
 echo -e " \e[90mGõ \`mme <lệnh> --help\` để xem chi tiết cách dùng của một nhóm lệnh.\e[0m"
