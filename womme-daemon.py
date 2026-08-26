@@ -214,8 +214,9 @@ def process_deploy(domain, config, trigger_type="Thủ công (mme deploy pull)")
             else:
                 log_message(domain, f"Health Check OK (Mã: {http_code})")
                 
-        # 8. Xóa Cache WordOps
+        # 8. Xóa Cache WordOps & Reload PHP OPcache
         run_cmd("wo clean --all")
+        run_cmd("systemctl reload 'php*-fpm' 2>/dev/null || true")
         
         # 9. Cleanup Releases
         log_message(domain, f"Đang dọn dẹp các release cũ (Giữ lại {keep_releases} bản)...")
@@ -391,6 +392,7 @@ def process_rollback(domain, config):
     owner = get_site_owner(domain)
     run_cmd(f"chown -h {owner}:www-data {symlink_target}")
     run_cmd("wo clean --all")
+    run_cmd("systemctl reload 'php*-fpm' 2>/dev/null || true")
     
     broken_release = releases[0]
     run_cmd(f"rm -rf {broken_release}")
