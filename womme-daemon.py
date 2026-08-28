@@ -182,6 +182,30 @@ def process_deploy(domain, config, trigger_type="Thủ công (mme deploy pull)")
             log_message(domain, "LỖI PREFLIGHT: Thư mục release không tồn tại.")
             return False
             
+        # KHÓA BẢO VỆ NGUY HIỂM: Nếu symlink_target là htdocs nhưng repo là Theme/Plugin -> TỪ CHỐI DEPLOY
+        if symlink_target == f"/var/www/{domain}/htdocs":
+            has_wp_core = os.path.exists(f"{new_release_dir}/wp-settings.php") or os.path.exists(f"{new_release_dir}/wp-admin") or os.path.exists(f"{new_release_dir}/wp-includes")
+            is_theme_or_plugin = False
+            if not has_wp_core:
+                if os.path.exists(f"{new_release_dir}/style.css") or os.path.exists(f"{new_release_dir}/functions.php"):
+                    is_theme_or_plugin = True
+                else:
+                    # Kiểm tra xem có file plugin chính không
+                    for f in os.listdir(new_release_dir):
+                        if f.endswith(".php"):
+                            try:
+                                with open(os.path.join(new_release_dir, f), "r", errors="ignore") as pf:
+                                    if "Plugin Name:" in pf.read(1024):
+                                        is_theme_or_plugin = True
+                                        break
+                            except:
+                                pass
+            if is_theme_or_plugin:
+                log_message(domain, "❌ LỖI BẢO VỆ AN TOÀN: Repo này là WordPress Theme/Plugin (không có WordPress Core). Hệ thống TỪ CHỐI đè vào thư mục htdocs gốc để tránh làm mất WordPress!")
+                log_message(domain, "👉 Vui lòng cấu hình lại path dạng: wp-content/themes/<tên-theme> bằng lệnh 'mme deploy add'.")
+                run_cmd(f"rm -rf {new_release_dir}")
+                return False
+            
         # 6. Atomic Switch htdocs
         log_message(domain, "Đang chuyển đổi Symlink (Atomic Switch)...")
         if os.path.exists(symlink_target) and not os.path.islink(symlink_target):

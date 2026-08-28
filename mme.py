@@ -217,7 +217,7 @@ def validate_paths(path_str):
         valid_paths.append(p)
     return valid_paths
 
-def cmd_deploy_setup(args):
+def cmd_deploy_add(args):
     repo = args.repo
     branch = args.branch
     path = args.path
@@ -237,16 +237,22 @@ def cmd_deploy_setup(args):
         repo_name = repo_clean.split("/")[-1].replace(".git", "") if repo_clean else ""
         repo_name_lower = repo_name.lower()
         
-        # Tự động nhận diện loại dự án từ tên Repo
-        detected_type = "1"
-        detected_hint = "Enter mặc định là 1 (Toàn bộ web)"
+        # Kiểm tra xem site trên VPS có phải là WordPress không
+        is_wp_site = False
+        wp_check_dir = f"/var/www/{args.domain}/htdocs"
+        if os.path.exists(f"{wp_check_dir}/wp-config.php") or os.path.exists(f"{wp_check_dir}/wp-content") or os.path.exists(f"/var/www/{args.domain}/wp-config.php"):
+            is_wp_site = True
         
-        if repo_name_lower.startswith("web-") or repo_name_lower.startswith("theme-") or "theme" in repo_name_lower:
-            detected_type = "2"
-            detected_hint = f"Tự nhận diện Theme: Enter mặc định là 2 ({repo_name})"
-        elif repo_name_lower.startswith("plugin-") or "plugin" in repo_name_lower:
+        # Tự động nhận diện loại dự án từ tên Repo & trạng thái website
+        detected_type = "2" if is_wp_site else "1"
+        detected_hint = f"Tự nhận diện Theme: Enter mặc định là 2 ({repo_name})" if is_wp_site else "Enter mặc định là 1 (Toàn bộ web)"
+        
+        if repo_name_lower.startswith("plugin-") or "plugin" in repo_name_lower:
             detected_type = "3"
             detected_hint = f"Tự nhận diện Plugin: Enter mặc định là 3 ({repo_name})"
+        elif is_wp_site or repo_name_lower.startswith("web-") or repo_name_lower.startswith("theme-") or "theme" in repo_name_lower or "web" in repo_name_lower:
+            detected_type = "2"
+            detected_hint = f"Tự nhận diện Theme: Enter mặc định là 2 ({repo_name})"
             
         print("3. Bạn muốn deploy loại dự án nào?")
         print("   [1] Toàn bộ website (Thả code thẳng vào htdocs gốc)")
@@ -256,6 +262,15 @@ def cmd_deploy_setup(args):
         type_choice = input(f"   -> Chọn (1/2/3/4) [{detected_hint}]: ").strip()
         if not type_choice:
             type_choice = detected_type
+            
+        # Cảnh báo an toàn nếu chọn thả đè htdocs trên website WordPress
+        if type_choice == "1" and is_wp_site:
+            print("\n\033[91m⚠️ CẢNH BÁO NGUY HIỂM:\033[0m")
+            print(f"Domain \033[96m{args.domain}\033[0m là website WordPress! Nếu chọn [1], toàn bộ file WordPress Core (wp-admin, wp-includes, wp-config.php) sẽ bị thay thế bằng repo này.")
+            confirm = input("Bạn có THỰC SỰ muốn đè toàn bộ htdocs gốc không? (Nhập 'yes' để xác nhận, hoặc Enter để chuyển sang Theme): ").strip()
+            if confirm.lower() != "yes":
+                print("-> Đã tự động chuyển về [2] Theme WordPress để bảo vệ an toàn cho WordPress.")
+                type_choice = "2"
             
         if type_choice == "2":
             default_theme = repo_name if repo_name else "my-theme"
@@ -364,12 +379,13 @@ def cmd_deploy_setup(args):
     log_info(f"Để chạy thử deploy lần đầu thủ công, hãy gõ lệnh: mme deploy pull {args.domain}")
 
 # Alias cho backward compatibility
-cmd_deploy_push = cmd_deploy_setup
+cmd_deploy_setup = cmd_deploy_add
+cmd_deploy_push = cmd_deploy_add
 
 def cmd_deploy_edit(args):
     config = load_config()
     if args.domain not in config:
-        log_error(f"Domain {args.domain} chưa có cấu hình deploy. Vui lòng dùng lệnh 'mme deploy setup' trước.")
+        log_error(f"Domain {args.domain} chưa có cấu hình deploy. Vui lòng dùng lệnh 'mme deploy add' trước.")
         return
         
     conf_list = config[args.domain]
@@ -1203,7 +1219,7 @@ CUSTOM_HELP = """
 \033[96m==================================================\033[0m
 
  \033[93mCác lệnh có thể dùng:\033[0m
- \033[96mmme deploy setup <domain>\033[0m    (Cài đặt cấu hình Auto Deploy - Alias: add)
+ \033[96mmme deploy add <domain>\033[0m        (Thêm cấu hình Auto Deploy)
  \033[96mmme deploy edit <domain>\033[0m     (Sửa cấu hình Auto Deploy)
  \033[96mmme deploy list\033[0m              (Xem danh sách Auto Deploy)
  \033[96mmme deploy pull <domain>\033[0m     (Chạy Deploy thủ công)
@@ -1830,7 +1846,7 @@ def cmd_status(args):
         except Exception:
             pass
     else:
-        print("  - SSH Key: \033[91m❌ Chưa tạo SSH Key\033[0m (Gõ `mme deploy setup <domain>` để tự tạo)")
+        print("  - SSH Key: \033[91m❌ Chưa tạo SSH Key\033[0m (Gõ `mme deploy add <domain>` để tự tạo)")
 
     # 5. Tổng quan Auto Deploy
     config = load_config()
@@ -1841,7 +1857,7 @@ def cmd_status(args):
         print(f"  - Đang quản lý: \033[1;36m{total_domains}\033[0m domain (\033[1;36m{total_jobs}\033[0m job auto deploy)")
         print("  - Gõ \033[96mmme deploy list\033[0m để xem chi tiết từng website.")
     else:
-        print("  - Chưa có domain nào được cấu hình deploy. Gõ \033[96mmme deploy setup <domain>\033[0m để thêm mới.")
+        print("  - Chưa có domain nào được cấu hình deploy. Gõ \033[96mmme deploy add <domain>\033[0m để thêm mới.")
 
     print("\n" + "\033[96m="*55 + "\033[0m")
     print(" \033[90mGõ `mme update` để nâng cấp tool lên phiên bản mới nhất từ GitHub.\033[0m")
@@ -2041,15 +2057,23 @@ def main():
     deploy_parser = subparsers.add_parser("deploy", help="Quản lý Git Auto Deploy")
     deploy_sub = deploy_parser.add_subparsers(dest="deploy_cmd", required=True)
     
-    # deploy setup (alias: add)
-    for setup_cmd in ["setup", "add"]:
-        deploy_setup = deploy_sub.add_parser(setup_cmd, help="Cài đặt cấu hình auto deploy cho domain")
-        deploy_setup.add_argument("domain", help="Tên miền (VD: mme.vn)")
-        deploy_setup.add_argument("--repo", required=False, default=None, help="Git repo URL")
-        deploy_setup.add_argument("--branch", default="", help="Branch (Mặc định: Tự động lấy branch chính của repo)")
-        deploy_setup.add_argument("--path", default="", help="Đường dẫn lưu code (mặc định: root htdocs)")
-        deploy_setup.add_argument("--build", default="", help="Lệnh build (VD: npm run build)")
-        deploy_setup.set_defaults(func=cmd_deploy_setup)
+    # deploy add
+    deploy_add = deploy_sub.add_parser("add", help="Thêm cấu hình auto deploy cho domain")
+    deploy_add.add_argument("domain", help="Tên miền (VD: mme.vn)")
+    deploy_add.add_argument("--repo", required=False, default=None, help="Git repo URL")
+    deploy_add.add_argument("--branch", default="", help="Branch (Mặc định: Tự động lấy branch chính của repo)")
+    deploy_add.add_argument("--path", default="", help="Đường dẫn lưu code (mặc định: root htdocs)")
+    deploy_add.add_argument("--build", default="", help="Lệnh build (VD: npm run build)")
+    deploy_add.set_defaults(func=cmd_deploy_add)
+
+    # deploy setup (alias)
+    deploy_setup = deploy_sub.add_parser("setup", help=argparse.SUPPRESS)
+    deploy_setup.add_argument("domain", help="Tên miền (VD: mme.vn)")
+    deploy_setup.add_argument("--repo", required=False, default=None)
+    deploy_setup.add_argument("--branch", default="")
+    deploy_setup.add_argument("--path", default="")
+    deploy_setup.add_argument("--build", default="")
+    deploy_setup.set_defaults(func=cmd_deploy_add)
     
     # deploy edit
     deploy_edit = deploy_sub.add_parser("edit", help="Sửa cấu hình deploy hiện tại")
