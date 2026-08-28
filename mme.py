@@ -256,40 +256,59 @@ def cmd_deploy_add(args):
             
         print("3. Bạn muốn deploy loại dự án nào?")
         print("   [1] Toàn bộ website (Thả code thẳng vào htdocs gốc)")
-        print("   [2] Theme WordPress")
-        print("   [3] Plugin WordPress")
+        print("   [2] Theme WordPress (wp-content/themes/...)")
+        print("   [3] Plugin WordPress (wp-content/plugins/...)")
         print("   [4] Tùy chỉnh đường dẫn riêng (Custom path)")
-        type_choice = input(f"   -> Chọn (1/2/3/4) [{detected_hint}]: ").strip()
+        type_choice = input(f"   -> Chọn (1/2/3/4) hoặc gõ trực tiếp tên Theme [{detected_hint}]: ").strip()
         if not type_choice:
             type_choice = detected_type
             
         # Cảnh báo an toàn nếu chọn thả đè htdocs trên website WordPress
-        if type_choice == "1" and is_wp_site:
-            print("\n\033[91m⚠️ CẢNH BÁO NGUY HIỂM:\033[0m")
-            print(f"Domain \033[96m{args.domain}\033[0m là website WordPress! Nếu chọn [1], toàn bộ file WordPress Core (wp-admin, wp-includes, wp-config.php) sẽ bị thay thế bằng repo này.")
-            confirm = input("Bạn có THỰC SỰ muốn đè toàn bộ htdocs gốc không? (Nhập 'yes' để xác nhận, hoặc Enter để chuyển sang Theme): ").strip()
-            if confirm.lower() != "yes":
-                print("-> Đã tự động chuyển về [2] Theme WordPress để bảo vệ an toàn cho WordPress.")
-                type_choice = "2"
+        if type_choice == "1":
+            if is_wp_site:
+                print("\n\033[91m⚠️ CẢNH BÁO NGUY HIỂM:\033[0m")
+                print(f"Domain \033[96m{args.domain}\033[0m là website WordPress! Nếu chọn [1], toàn bộ file WordPress Core (wp-admin, wp-includes, wp-config.php) sẽ bị thay thế bằng repo này.")
+                confirm = input("Bạn có THỰC SỰ muốn đè toàn bộ htdocs gốc không? (Nhập 'yes' để xác nhận, hoặc Enter để chuyển sang Theme): ").strip()
+                if confirm.lower() != "yes":
+                    print("-> Đã tự động chuyển về [2] Theme WordPress để bảo vệ an toàn cho WordPress.")
+                    type_choice = "2"
+                else:
+                    path = ""
+                    print(f"   => Đã cấu hình đường dẫn gốc: \033[96mhtdocs\033[0m")
+            else:
+                path = ""
+                print(f"   => Đã cấu hình đường dẫn gốc: \033[96mhtdocs\033[0m")
             
-        if type_choice == "2":
+        if type_choice in ["2", "theme", "t"]:
             default_theme = repo_name if repo_name else "my-theme"
             theme_input = input(f"   -> Nhập tên thư mục Theme [Nhấn Enter mặc định: {default_theme}]: ").strip()
             theme_name = theme_input if theme_input else default_theme
             path = f"wp-content/themes/{theme_name}"
             print(f"   => Đã cấu hình đường dẫn Theme: \033[96m{path}\033[0m")
-        elif type_choice == "3":
+        elif type_choice in ["3", "plugin", "p"]:
             default_plugin = repo_name if repo_name else "my-plugin"
             plugin_input = input(f"   -> Nhập tên thư mục Plugin [Nhấn Enter mặc định: {default_plugin}]: ").strip()
             plugin_name = plugin_input if plugin_input else default_plugin
             path = f"wp-content/plugins/{plugin_name}"
             print(f"   => Đã cấu hình đường dẫn Plugin: \033[96m{path}\033[0m")
-        elif type_choice == "4":
+        elif type_choice in ["4", "custom", "c"]:
             path_input = input(f"   -> Nhập đường dẫn con lưu code (Ví dụ: app/frontend): ").strip()
             path = path_input
-        else:
-            path = ""
-            print(f"   => Đã cấu hình đường dẫn gốc: \033[96mhtdocs\033[0m")
+        elif type_choice != "1":
+            # Người dùng gõ trực tiếp tên theme/plugin (VD: thememme-ezio, wp-content/themes/xyz, ...)
+            custom_val = type_choice.strip("/")
+            if custom_val.startswith("wp-content/themes/") or custom_val.startswith("wp-content/plugins/"):
+                path = custom_val
+            elif custom_val.startswith("themes/"):
+                path = f"wp-content/{custom_val}"
+            elif custom_val.startswith("plugins/"):
+                path = f"wp-content/{custom_val}"
+            elif custom_val.startswith("plugin-") or "plugin" in custom_val.lower():
+                path = f"wp-content/plugins/{custom_val}"
+            else:
+                # Mặc định coi là tên Theme WordPress
+                path = f"wp-content/themes/{custom_val}"
+            print(f"   => Đã nhận diện đường dẫn: \033[96m{path}\033[0m")
             
         build_input = input(f"4. Nhập lệnh build - ví dụ: npm install (Nhấn Enter nếu không cần): ").strip()
         if build_input:
@@ -420,33 +439,46 @@ def cmd_deploy_edit(args):
     old_path = old_conf.get('path', '')
     
     print(f"3. Chọn Loại Code Mới (Nhấn Enter để giữ nguyên: \033[36m{old_path if old_path else 'Toàn bộ mã nguồn'}\033[0m):")
-    print("   [1] Toàn bộ mã nguồn (Full Source)")
-    print("   [2] Theme WordPress")
-    print("   [3] Plugin WordPress")
+    print("   [1] Toàn bộ mã nguồn (Full Source / htdocs)")
+    print("   [2] Theme WordPress (wp-content/themes/...)")
+    print("   [3] Plugin WordPress (wp-content/plugins/...)")
     print("   [4] Tùy chỉnh đường dẫn riêng (Custom path)")
-    type_choice = input("   -> Chọn (1/2/3/4) [Nhấn Enter bỏ qua]: ").strip()
+    type_choice = input("   -> Chọn (1/2/3/4) hoặc gõ trực tiếp tên Theme [Nhấn Enter giữ nguyên]: ").strip()
     
-    if type_choice == "1":
+    if not type_choice:
+        path = old_path
+    elif type_choice == "1":
         path = ""
-    elif type_choice == "2":
-        while True:
-            theme_name = input("   -> Nhập chính xác tên thư mục Theme: ").strip()
-            if theme_name:
-                path = f"wp-content/themes/{theme_name}"
-                print(f"   => Đã cấu hình đường dẫn Theme: \033[96m{path}\033[0m")
-                break
-    elif type_choice == "3":
-        while True:
-            plugin_name = input("   -> Nhập chính xác tên thư mục Plugin: ").strip()
-            if plugin_name:
-                path = f"wp-content/plugins/{plugin_name}"
-                print(f"   => Đã cấu hình đường dẫn Plugin: \033[96m{path}\033[0m")
-                break
-    elif type_choice == "4":
+    elif type_choice in ["2", "theme", "t"]:
+        repo_clean = repo.rstrip("/")
+        default_theme = repo_clean.split("/")[-1].replace(".git", "") if repo_clean else "my-theme"
+        theme_input = input(f"   -> Nhập tên thư mục Theme [Nhấn Enter mặc định: {default_theme}]: ").strip()
+        theme_name = theme_input if theme_input else default_theme
+        path = f"wp-content/themes/{theme_name}"
+        print(f"   => Đã cấu hình đường dẫn Theme: \033[96m{path}\033[0m")
+    elif type_choice in ["3", "plugin", "p"]:
+        repo_clean = repo.rstrip("/")
+        default_plugin = repo_clean.split("/")[-1].replace(".git", "") if repo_clean else "my-plugin"
+        plugin_input = input(f"   -> Nhập tên thư mục Plugin [Nhấn Enter mặc định: {default_plugin}]: ").strip()
+        plugin_name = plugin_input if plugin_input else default_plugin
+        path = f"wp-content/plugins/{plugin_name}"
+        print(f"   => Đã cấu hình đường dẫn Plugin: \033[96m{path}\033[0m")
+    elif type_choice in ["4", "custom", "c"]:
         path_input = input(f"   -> Nhập đường dẫn con lưu code (Ví dụ: app/frontend): ").strip()
         path = path_input
     else:
-        path = old_path
+        custom_val = type_choice.strip("/")
+        if custom_val.startswith("wp-content/themes/") or custom_val.startswith("wp-content/plugins/"):
+            path = custom_val
+        elif custom_val.startswith("themes/"):
+            path = f"wp-content/{custom_val}"
+        elif custom_val.startswith("plugins/"):
+            path = f"wp-content/{custom_val}"
+        elif custom_val.startswith("plugin-") or "plugin" in custom_val.lower():
+            path = f"wp-content/plugins/{custom_val}"
+        else:
+            path = f"wp-content/themes/{custom_val}"
+        print(f"   => Đã nhận diện đường dẫn: \033[96m{path}\033[0m")
         
     build = input(f"4. Build Command [{old_conf.get('build')}]: ").strip()
     if not build and old_conf.get('build'):
