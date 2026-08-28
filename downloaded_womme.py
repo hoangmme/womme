@@ -346,12 +346,16 @@ class WOMMEDeployController(CementBaseController):
             (['--branch'], dict(help='Branch cần deploy (Mặc định: main)')),
             (['--path'], dict(help='Đường dẫn thư mục đích trong htdocs (VD: wp-content/themes/mme hoặc /)')),
             (['--build'], dict(help='Lệnh build chạy sau khi clone (VD: "npm ci && npm run build")')),
-            (['domain'], dict(nargs='?', help='Tên miền (cho lệnh add, run, rollback, logs, delete)')),
+            (['domain'], dict(nargs='?', help='Tên miền (cho lệnh setup, add, run, rollback, logs, delete)')),
         ]
 
-    @expose(help="Quản lý job auto deploy (wo mme deploy <add|list|run|rollback|logs|delete>)")
+    @expose(help="Quản lý job auto deploy (wo mme deploy <setup|add|list|run|rollback|logs|delete>)")
     def default(self):
         self.app.args.print_help()
+
+    @expose(help="Cài đặt cấu hình auto deploy cho tên miền")
+    def setup(self):
+        return self.add()
 
     @expose(help="Thêm cấu hình auto deploy cho tên miền")
     def add(self):

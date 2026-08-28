@@ -68,7 +68,7 @@ _mme_completion() {
     }
 
     local commands="deploy site role copy db update port core status"
-    local deploy_commands="push pull edit list rollback logs delete"
+    local deploy_commands="setup add pull edit list rollback logs delete push"
     local site_commands="pause start lockon lockoff clone rename wpmme thememme mmeform migrate"
     
     # Lấy danh sách tên miền từ /var/www (bỏ qua các thư mục hệ thống của WordOps)
@@ -99,7 +99,7 @@ _mme_completion() {
         case "$cmd" in
             deploy)
                 case "$subcmd" in
-                    push|edit|pull|rollback|logs|delete)
+                    setup|add|push|edit|pull|rollback|logs|delete)
                         COMPREPLY=( $(compgen -W "$domains all" -- "$cur") )
                         ;;
                 esac
@@ -137,7 +137,7 @@ echo -e "\e[1;92m WordOps MMe CLI Tool - Trợ lý vận hành siêu tốc\e[0m"
 echo -e "\e[96m==================================================\e[0m"
 echo ""
 echo -e " \e[93mCác lệnh có thể dùng:\e[0m"
-echo -e " \e[96mmme deploy push <domain>\e[0m     (Thêm cấu hình Auto Deploy)"
+echo -e " \e[96mmme deploy setup <domain>\e[0m    (Cài đặt cấu hình Auto Deploy - Alias: add)"
 echo -e " \e[96mmme deploy edit <domain>\e[0m     (Sửa cấu hình Auto Deploy)"
 echo -e " \e[96mmme deploy list\e[0m              (Xem danh sách Auto Deploy)"
 echo -e " \e[96mmme deploy pull <domain>\e[0m     (Chạy Deploy thủ công)"

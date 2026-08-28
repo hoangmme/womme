@@ -44,15 +44,14 @@ mme site wpmme domain.com
 
 ## 🛠 Cách sử dụng CLI
 
-### 1. Thêm cấu hình Auto Deploy (`add`)
-Cấu hình một domain để tự động nhận code mỗi khi push lên Git. Có thể chọn đường dẫn là toàn bộ site (`/`) hoặc chỉ 1 thư mục theme/plugin.
+### 1. Cài đặt cấu hình Auto Deploy (`setup` / `add`)
+Cấu hình một domain để tự động nhận code mỗi khi push lên Git. Có thể chọn đường dẫn là toàn bộ site (`/`) hoặc chỉ 1 thư mục theme/plugin:
 
 ```bash
-Cấu hình một domain để tự động nhận code mỗi khi push lên Git.
-```bash
-mme deploy push domain.com
+mme deploy setup domain.com
+# hoặc: mme deploy add domain.com
 ```
-Lệnh này sẽ hỏi bạn URL của Git Repository, nhánh (branch), và đường dẫn cần triển khai.
+Lệnh này sẽ hỏi bạn URL của Git Repository, nhánh (branch), và đường dẫn cần triển khai (tự động nhận diện Theme/Plugin từ tên repo).
 
 ### 2. Kích hoạt triển khai (Deploy) thủ công
 Bạn có thể tự tay tải code mới nhất về server mà không cần đợi webhook bằng lệnh:
