@@ -2041,8 +2041,8 @@ def main():
     deploy_parser = subparsers.add_parser("deploy", help="Quản lý Git Auto Deploy")
     deploy_sub = deploy_parser.add_subparsers(dest="deploy_cmd", required=True)
     
-    # deploy setup (aliases: add, push)
-    for setup_cmd in ["setup", "add", "push"]:
+    # deploy setup (alias: add)
+    for setup_cmd in ["setup", "add"]:
         deploy_setup = deploy_sub.add_parser(setup_cmd, help="Cài đặt cấu hình auto deploy cho domain")
         deploy_setup.add_argument("domain", help="Tên miền (VD: mme.vn)")
         deploy_setup.add_argument("--repo", required=False, default=None, help="Git repo URL")
