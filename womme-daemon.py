@@ -9,7 +9,12 @@ import time
 import shutil
 from datetime import datetime
 from http.server import BaseHTTPRequestHandler, HTTPServer
+from socketserver import ThreadingMixIn
 import pwd
+
+class ThreadedHTTPServer(ThreadingMixIn, HTTPServer):
+    daemon_threads = True
+    allow_reuse_address = True
 
 DEPLOY_CONFIG_FILE = "/etc/wo/mme-deploy.json"
 LOG_DIR = "/var/log/womme"
@@ -381,7 +386,7 @@ class WebhookHandler(BaseHTTPRequestHandler):
 
 def run_server(port=8989):
     server_address = ('', port)
-    httpd = HTTPServer(server_address, WebhookHandler)
+    httpd = ThreadedHTTPServer(server_address, WebhookHandler)
     print(f"Bắt đầu WOMME Webhook Daemon tại port {port}...")
     httpd.serve_forever()
 
