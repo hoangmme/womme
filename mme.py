@@ -787,13 +787,23 @@ def cmd_deploy_list(args):
             setup_nginx_webhook(domain)
             
         # Test webhook endpoint
-        curl_cmd = ["curl", "-L", "-X", "GET", "-s", "-o", "/dev/null", "-w", "%{http_code}", f"https://{domain}/mme-webhook"]
+        curl_cmd = ["curl", "-k", "-L", "-X", "GET", "-s", "-o", "/dev/null", "-w", "%{http_code}", "--max-time", "5", f"https://{domain}/mme-webhook"]
         res = subprocess.run(curl_cmd, capture_output=True, text=True)
-        is_webhook_ok = res.stdout.strip() in ['200', '201']
+        http_code = res.stdout.strip()
+        is_webhook_ok = http_code in ['200', '201']
         if is_webhook_ok:
             print("           \033[92m✅ Trạng thái Webhook: OK (Đang lắng nghe)\033[0m")
         else:
-            print("           \033[91m❌ Trạng thái Webhook: LỖI (Không phản hồi, hãy kiểm tra Nginx)\033[0m")
+            if http_code == "502":
+                print("           \033[91m❌ Trạng thái Webhook: LỖI (502 Bad Gateway - Webhook Daemon đang tắt, hãy gõ: systemctl restart womme-daemon)\033[0m")
+            elif http_code == "404":
+                print("           \033[91m❌ Trạng thái Webhook: LỖI (404 Not Found - Chưa nạp Nginx webhook, hãy gõ: wo stack reload --nginx)\033[0m")
+            elif http_code == "403":
+                print("           \033[91m❌ Trạng thái Webhook: LỖI (403 Forbidden - Bị chặn bởi Cloudflare WAF hoặc tường lửa)\033[0m")
+            elif http_code == "000":
+                print("           \033[91m❌ Trạng thái Webhook: LỖI (000 - Không kết nối được domain / lỗi DNS / Timeout)\033[0m")
+            else:
+                print(f"           \033[91m❌ Trạng thái Webhook: LỖI (Mã HTTP: {http_code}, hãy kiểm tra Nginx)\033[0m")
         
         for idx, conf in enumerate(conf_list):
             prefix = "  "
