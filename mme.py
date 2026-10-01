@@ -152,20 +152,23 @@ def save_config(config):
     with open(DEPLOY_CONFIG_FILE, 'w') as f:
         json.dump(config, f, indent=4)
 
-def ensure_ssh_key():
+def ensure_ssh_key(show_deploy_info=True):
     key_path = "/root/.ssh/id_ed25519"
     pub_key_path = f"{key_path}.pub"
     if not os.path.exists(key_path):
-        log_info("Chưa có SSH Key. Đang tạo tự động SSH Deploy Key mới (Ed25519)...")
+        log_info("Chưa có SSH Key. Đang tạo tự động SSH Key mới (Ed25519)...")
         subprocess.run(f'ssh-keygen -t ed25519 -f {key_path} -N "" -q', shell=True)
     
     if os.path.exists(pub_key_path):
         with open(pub_key_path, 'r') as f:
             pub_key = f.read().strip()
-            log_info("================================================================")
-            log_info("Public Key của Server (Hãy copy và thêm vào GitHub Deploy Keys):")
-            log_info(pub_key)
-            log_info("================================================================")
+            if show_deploy_info:
+                log_info("================================================================")
+                log_info("Public Key của Server (Hãy copy và thêm vào GitHub Deploy Keys):")
+                log_info(pub_key)
+                log_info("================================================================")
+            return pub_key
+    return ""
 
 # ==================== COMMAND HANDLERS ====================
 
@@ -1324,7 +1327,7 @@ def cmd_site_copy(args):
         new_domain = input("  Tên miền mới (VD: new.com): ").strip()
 
     # Đảm bảo có SSH key
-    ensure_ssh_key()
+    ensure_ssh_key(show_deploy_info=False)
     
     pub_key_path = "/root/.ssh/id_ed25519.pub"
     if not os.path.exists(pub_key_path):
@@ -1426,22 +1429,53 @@ def cmd_site_migrate(args):
     
     # 1. Source Detection
     print("\n[1] Bắt đầu kiểm tra VPS Nguồn...")
-    wp_root = f"/var/www/{old_domain}/htdocs"
-    wp_config = f"/var/www/{old_domain}/wp-config.php"
+    wp_root = None
+    wp_config = None
     
-    if os.path.exists(wp_root) and os.path.exists(wp_config):
+    # 1.1 Tìm WP Root
+    potential_roots = [
+        f"/var/www/{old_domain}/htdocs",
+        f"/var/www/{old_domain}",
+        f"/var/www/html/{old_domain}",
+        f"/var/www/html"
+    ]
+    for r in potential_roots:
+        if os.path.isdir(r):
+            wp_root = r
+            break
+            
+    # 1.2 Tìm wp-config.php
+    potential_configs = [
+        f"/var/www/{old_domain}/wp-config.php",
+        f"/var/www/{old_domain}/htdocs/wp-config.php"
+    ]
+    if wp_root:
+        potential_configs.insert(0, f"{wp_root}/wp-config.php")
+        parent_dir = os.path.dirname(wp_root.rstrip("/"))
+        potential_configs.append(f"{parent_dir}/wp-config.php")
+        
+    for c in potential_configs:
+        if os.path.isfile(c):
+            wp_config = c
+            break
+
+    if wp_root and wp_config:
         print(f"✅ Đã nhận diện chuẩn WordOps trên VPS nguồn:")
-        print(f"   - WP root: {wp_root}")
-        print(f"   - WP config: {wp_config}")
+        print(f"   - WP root:   \033[96m{wp_root}\033[0m")
+        print(f"   - WP config: \033[96m{wp_config}\033[0m")
     else:
-        print(f"⚠️ Không nhận diện được chuẩn WordOps cho domain: {old_domain}")
-        wp_root = input("   -> Nhập đường dẫn WP Root (VD: /var/www/html): ").strip()
-        while not os.path.exists(wp_root):
+        print(f"⚠️ Không nhận diện được đầy đủ chuẩn WordOps cho domain: {old_domain}")
+        default_root = wp_root if wp_root else f"/var/www/{old_domain}/htdocs"
+        input_root = input(f"   -> Nhập đường dẫn WP Root [Nhấn Enter lấy: {default_root}]: ").strip()
+        wp_root = input_root if input_root else default_root
+        while not os.path.isdir(wp_root):
             wp_root = input("   -> Thư mục không tồn tại. Nhập lại WP Root: ").strip()
             
-        wp_config = input("   -> Nhập đường dẫn wp-config.php: ").strip()
-        while not os.path.exists(wp_config):
-            wp_config = input("   -> File không tồn tại. Nhập lại wp-config.php: ").strip()
+        default_config = wp_config if wp_config else (f"{wp_root}/wp-config.php" if os.path.isfile(f"{wp_root}/wp-config.php") else f"/var/www/{old_domain}/wp-config.php")
+        input_config = input(f"   -> Nhập đường dẫn file wp-config.php [Nhấn Enter lấy: {default_config}]: ").strip()
+        wp_config = input_config if input_config else default_config
+        while not os.path.isfile(wp_config):
+            wp_config = input("   -> File không tồn tại (phải trỏ trực tiếp file wp-config.php, không nhập thư mục). Nhập lại: ").strip()
             
     # 2. Target SSH Prompt
     print("\n[2] Thông tin VPS Đích (Target VPS)")
@@ -1470,7 +1504,7 @@ def cmd_site_migrate(args):
         return
         
     # 3. SSH Key Management
-    ensure_ssh_key()
+    ensure_ssh_key(show_deploy_info=False)
     ssh_key = "/root/.ssh/id_ed25519"
     pub_key_path = f"{ssh_key}.pub"
     if not os.path.exists(pub_key_path):
@@ -1490,14 +1524,14 @@ def cmd_site_migrate(args):
             print(f"✅ SSH kết nối thành công tới {ssh_host}")
             break
         else:
-            print("\n❌ KHÔNG THỂ KẾT NỐI BẰNG KHÓA SSH HIỆN TẠI")
-            print("Vui lòng truy cập vào VPS đích và dán khóa Public Key sau vào file: \033[96m/root/.ssh/authorized_keys\033[0m")
-            print("-" * 60)
-            print(f"\033[93m{pub_key}\033[0m")
-            print("-" * 60)
-            print("Gợi ý các lệnh cần chạy trên VPS đích (nếu chưa có sẵn thư mục .ssh):")
-            print("  mkdir -p ~/.ssh && chmod 700 ~/.ssh && nano ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys")
-            input("\n👉 Nhấn \033[92mENTER\033[0m sau khi bạn đã dán khóa thành công để thử lại... (hoặc Ctrl+C để thoát)")
+            print("\n" + "="*68)
+            print(" 🔑 BƯỚC CẤP QUYỀN SSH SANG VPS ĐÍCH")
+            print("="*68)
+            print(f"Để VPS này có thể chuyển dữ liệu sang VPS đích ({ssh_host}),")
+            print("bạn hãy mở terminal của VPS đích, copy và dán duy nhất dòng lệnh sau rồi Enter:")
+            print("\n\033[1;92m" + f"mkdir -p ~/.ssh && chmod 700 ~/.ssh && echo '{pub_key}' >> ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys" + "\033[0m\n")
+            print("="*68)
+            input("👉 Sau khi đã chạy lệnh trên ở VPS đích, nhấn ENTER tại đây để tiếp tục... (hoặc Ctrl+C để thoát)")
 
     # 5. Target Preflight check (WordOps, htdocs, wp-cli)
     print("\n[4] Kiểm tra nền tảng trên VPS đích...")
@@ -1999,7 +2033,7 @@ def cmd_copy(args):
         ip, port = ip.split(":", 1)
 
     # Đảm bảo có SSH key
-    ensure_ssh_key()
+    ensure_ssh_key(show_deploy_info=False)
     
     pub_key_path = "/root/.ssh/id_ed25519.pub"
     if not os.path.exists(pub_key_path):
