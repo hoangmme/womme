@@ -10,7 +10,7 @@ import shutil
 from datetime import datetime
 
 DEPLOY_CONFIG_FILE = "/etc/wo/mme-deploy.json"
-MME_VERSION = "1.2.0"
+MME_VERSION = "1.2.1"
 
 MAINTENANCE_HTML = """<!DOCTYPE html>
 <html lang="vi">
@@ -1460,7 +1460,10 @@ def cmd_site_migrate(args):
     if wp_root and wp_config:
         print(f"✅ Đã nhận diện chuẩn WordOps trên VPS nguồn:")
         print(f"   - WP root:   \033[96m{wp_root}\033[0m")
-        print(f"   - WP config: \033[96m{wp_config}\033[0m")
+        if wp_config == f"/var/www/{old_domain}/wp-config.php":
+            print(f"   - WP config: \033[96m{wp_config}\033[0m")
+        else:
+            print(f"   - WP config: \033[96m{wp_config}\033[0m \033[93m(Lưu ý: Không tìm thấy file ở ngoài /var/www/{old_domain}/wp-config.php nên đang dùng file bên trong htdocs)\033[0m")
     else:
         print(f"⚠️ Không nhận diện được đầy đủ chuẩn WordOps cho domain: {old_domain}")
         default_root = wp_root if wp_root else f"/var/www/{old_domain}/htdocs"
@@ -1939,7 +1942,7 @@ def cmd_status(args):
 
 def cmd_update(args):
     log_info("Đang cập nhật MMe CLI Tool lên phiên bản mới nhất từ GitHub...")
-    cmd = "curl -sL https://raw.githubusercontent.com/hoangmme/womme/main/install.sh | bash"
+    cmd = "curl -sL -H 'Cache-Control: no-cache' \"https://raw.githubusercontent.com/hoangmme/womme/main/install.sh?v=$(date +%s%N)\" | bash"
     result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
     if result.returncode == 0:
         log_info("Đã cập nhật thành công!")
