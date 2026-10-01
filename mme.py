@@ -1417,8 +1417,8 @@ def cmd_site_copy(args):
     log_info(f"✅ Đã copy xong website sang VPS {ip}!")
 
 def cmd_site_migrate(args):
-    old_domain = args.old
-    new_domain = args.new
+    old_domain = args.old.strip()
+    new_domain = args.new.strip()
     
     # Kiểm tra tránh truyền nhầm đường dẫn (vd: /var/www/...) thay vì domain
     if "/" in old_domain or "/" in new_domain:
@@ -1634,7 +1634,7 @@ def cmd_site_migrate(args):
     fix_perm = f"chown -R www-data:www-data /var/www/{new_domain} && " \
                f"find /var/www/{new_domain} -type d -exec chmod 755 {{}} \\; && " \
                f"find /var/www/{new_domain} -type f -exec chmod 644 {{}} \\; && " \
-               f"chmod 640 /var/www/{new_domain}/wp-config.php"
+               f"(chmod 640 /var/www/{new_domain}/wp-config.php 2>/dev/null || chmod 640 {target_wp_root}/wp-config.php 2>/dev/null || true)"
     subprocess.run(ssh_cmd_base + [fix_perm])
     
     # 12. Health check
