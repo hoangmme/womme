@@ -1444,18 +1444,16 @@ def cmd_site_migrate(args):
             wp_root = r
             break
             
-    # 1.2 Tìm wp-config.php
+    # 1.2 Tìm wp-config.php (Ưu tiên số 1 tuyệt đối là chuẩn WordOps: /var/www/<domain>/wp-config.php)
+    parent_dir = os.path.dirname(wp_root.rstrip("/")) if wp_root else f"/var/www/{old_domain}"
     potential_configs = [
         f"/var/www/{old_domain}/wp-config.php",
+        f"{parent_dir}/wp-config.php",
+        f"{wp_root}/wp-config.php" if wp_root else "",
         f"/var/www/{old_domain}/htdocs/wp-config.php"
     ]
-    if wp_root:
-        potential_configs.insert(0, f"{wp_root}/wp-config.php")
-        parent_dir = os.path.dirname(wp_root.rstrip("/"))
-        potential_configs.append(f"{parent_dir}/wp-config.php")
-        
     for c in potential_configs:
-        if os.path.isfile(c):
+        if c and os.path.isfile(c):
             wp_config = c
             break
 
