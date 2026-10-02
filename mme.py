@@ -1617,20 +1617,44 @@ def cmd_site_migrate(args):
     
     # 10. Search and replace
     print("\n[9] Đang thực hiện Search & Replace Database...")
-    replacements = [
-        (f"https://{old_domain}", f"https://{new_domain}"),
-        (f"http://{old_domain}", f"https://{new_domain}"),
-        (f"www.{old_domain}", f"{new_domain}"),
-        (old_domain, new_domain)
-    ]
+    
+    # Tự động quét tìm domain thực tế đang lưu trong Database nguồn (phòng trường hợp DB gốc clone từ domain khác)
+    source_db_domains = set([old_domain])
+    try:
+        from urllib.parse import urlparse
+        r1 = subprocess.run(["bash", "-lc", f"wp option get siteurl --path={wp_root} --allow-root"], capture_output=True, text=True)
+        if r1.stdout.strip():
+            d1 = urlparse(r1.stdout.strip()).netloc
+            if d1: source_db_domains.add(d1)
+        r2 = subprocess.run(["bash", "-lc", f"wp option get home --path={wp_root} --allow-root"], capture_output=True, text=True)
+        if r2.stdout.strip():
+            d2 = urlparse(r2.stdout.strip()).netloc
+            if d2: source_db_domains.add(d2)
+    except:
+        pass
+
+    replacements = []
+    for d in source_db_domains:
+        if d and d != new_domain:
+            replacements.extend([
+                (f"https://{d}", f"https://{new_domain}"),
+                (f"http://{d}", f"https://{new_domain}"),
+                (f"www.{d}", f"{new_domain}"),
+                (d, new_domain)
+            ])
     
     for old_str, new_str in replacements:
         sr_cmd = f"cd {target_wp_root} && wp search-replace '{old_str}' '{new_str}' --all-tables --allow-root"
         subprocess.run(ssh_cmd_base + [sr_cmd])
         
+    # Flush Elementor CSS nếu website dùng Elementor
+    subprocess.run(ssh_cmd_base + [f"cd {target_wp_root} && wp elementor flush-css --allow-root 2>/dev/null || true"])
+        
     # 11. Flush cache & fix permissions
     print("\n[10] Dọn dẹp Cache và phân quyền...")
     subprocess.run(ssh_cmd_base + [f"cd {target_wp_root} && wp cache flush --allow-root"])
+    subprocess.run(ssh_cmd_base + ["wo clean --all 2>/dev/null || true"])
+    subprocess.run(ssh_cmd_base + ["systemctl reload 'php*-fpm' 2>/dev/null || true"])
     
     fix_perm = f"chown -R www-data:www-data /var/www/{new_domain} && " \
                f"find /var/www/{new_domain} -type d -exec chmod 755 {{}} \\; && " \
