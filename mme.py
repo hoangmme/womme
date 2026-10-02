@@ -1651,8 +1651,9 @@ def cmd_site_migrate(args):
     res = subprocess.run(["curl", "-s", "-o", "/dev/null", "-w", "%{http_code}", f"https://{new_domain}"], capture_output=True, text=True)
     print(f"   ✅ HTTP Status Code ({new_domain}): {res.stdout.strip()}")
     
-    print(f"\n🎉 HOÀN TẤT MIGRATE: {old_domain} -> {new_domain}")
-    print("Vui lòng trỏ lại Domain DNS hoặc cấu hình hosts file trên máy cá nhân để kiểm tra website mới.")
+    print(f"\n🎉 HOÀN TẤT MIGRATE: \033[96m{old_domain}\033[0m -> \033[1;92m{new_domain}\033[0m")
+    print(f"👉 Website mới đã sẵn sàng hoạt động tại: \033[1;92mhttps://{new_domain}\033[0m")
+    print("   (Nếu domain đã trỏ DNS và cài SSL trước đó, website đã hoạt động ngay lập tức!)")
 
 
 def cmd_site_webp(args):
