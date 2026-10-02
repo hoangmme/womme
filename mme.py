@@ -1377,7 +1377,7 @@ def cmd_site_copy(args):
 
     log_info(f"Đang đồng bộ thư mục web và Database (Tốc độ phụ thuộc mạng)...")
     rsync_cmd = [
-        "rsync", "-avz", "--progress",
+        "rsync", "-avzL", "--progress",
         "-e", f"ssh -p {port} -o StrictHostKeyChecking=no -i /root/.ssh/id_ed25519",
         source_dir + "/",
         f"{user}@{ip}:{dest_dir}/"
@@ -1572,7 +1572,7 @@ def cmd_site_migrate(args):
     # 7. Rsync Source Code
     print("\n[6] Đang đồng bộ Source Code (Rsync)...")
     rsync_cmd = [
-        "rsync", "-avz",
+        "rsync", "-avzL",
         "--exclude=wp-content/cache/",
         "--exclude=*.log",
         "--exclude=wp-config.php",
@@ -2100,7 +2100,7 @@ def cmd_copy(args):
         rsync_source += "/" # Chỉ copy nội dung, không tạo thêm thư mục cha lồng nhau
         
     rsync_cmd = [
-        "rsync", "-avz", "--progress",
+        "rsync", "-avzL", "--progress",
         "-e", f"ssh -p {port} -o StrictHostKeyChecking=no -i /root/.ssh/id_ed25519",
         rsync_source,
         f"{user}@{ip}:{dest_dir}"
