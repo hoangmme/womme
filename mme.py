@@ -1516,7 +1516,7 @@ def cmd_site_migrate(args):
         pub_key = f.read().strip()
         
     # 4. SSH Preflight Check
-    ssh_cmd_base = ["ssh", "-i", ssh_key, "-p", ssh_port, "-o", "StrictHostKeyChecking=no", "-o", "ConnectTimeout=5", f"{ssh_user}@{ssh_host}"]
+    ssh_cmd_base = ["ssh", "-i", ssh_key, "-p", ssh_port, "-o", "StrictHostKeyChecking=no", "-o", "BatchMode=yes", "-o", "ConnectTimeout=5", f"{ssh_user}@{ssh_host}"]
     
     print(f"\n[3] Đang kiểm tra kết nối SSH tới {ssh_host}...")
     while True:
@@ -1577,7 +1577,7 @@ def cmd_site_migrate(args):
         "--exclude=*.log",
         "--exclude=wp-config.php",
         "--exclude=.user.ini",
-        "-e", f"ssh -i {ssh_key} -p {ssh_port} -o StrictHostKeyChecking=no",
+        "-e", f"ssh -i {ssh_key} -p {ssh_port} -o StrictHostKeyChecking=no -o BatchMode=yes",
         f"{wp_root}/",
         f"{ssh_user}@{ssh_host}:{target_wp_root}/"
     ]
@@ -1610,7 +1610,7 @@ def cmd_site_migrate(args):
     print("\n[8] Đang chuyển Database bằng luồng nén GZIP...")
     export_cmd = f"wp db export - --allow-root --path={wp_root} | gzip"
     import_cmd = f"cd {target_wp_root} && gunzip | wp db import - --allow-root"
-    ssh_full_cmd = f"ssh -i {ssh_key} -p {ssh_port} -o StrictHostKeyChecking=no {ssh_user}@{ssh_host} '{import_cmd}'"
+    ssh_full_cmd = f"ssh -i {ssh_key} -p {ssh_port} -o StrictHostKeyChecking=no -o BatchMode=yes {ssh_user}@{ssh_host} '{import_cmd}'"
     
     full_db_cmd = f"{export_cmd} | {ssh_full_cmd}"
     subprocess.call(full_db_cmd, shell=True)
