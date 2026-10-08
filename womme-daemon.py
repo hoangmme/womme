@@ -349,6 +349,13 @@ class WebhookHandler(BaseHTTPRequestHandler):
         # Báo OK ngay lập tức để Github không bị timeout
         self.send_response(200)
         self.end_headers()
+
+        github_event = (self.headers.get('X-GitHub-Event') or self.headers.get('X-Github-Event') or '').lower()
+        if github_event == 'ping':
+            self.wfile.write(b"Pong! MMe Webhook ping successfully received.")
+            log_message("system", f"🔔 Đã nhận Ping test Webhook thành công từ GitHub (Repo: {webhook_repo_keys})")
+            return
+
         self.wfile.write(b"Webhook received. Deploying in background...")
 
         import threading
