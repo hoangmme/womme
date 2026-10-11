@@ -174,10 +174,12 @@ def ensure_ssh_key(show_deploy_info=True):
 
 def setup_nginx_webhook(domain):
     nginx_conf_dir = f"/var/www/{domain}/conf/nginx"
-    if os.path.exists(nginx_conf_dir):
-        webhook_conf = f"{nginx_conf_dir}/mme-webhook.conf"
-        with open(webhook_conf, "w") as f:
-            f.write(f"""location ^~ /mme-webhook {{
+    try:
+        if os.path.exists(f"/var/www/{domain}"):
+            os.makedirs(nginx_conf_dir, exist_ok=True)
+            webhook_conf = f"{nginx_conf_dir}/mme-webhook.conf"
+            with open(webhook_conf, "w") as f:
+                f.write(f"""location ^~ /mme-webhook {{
     proxy_pass http://127.0.0.1:8989;
     proxy_set_header X-MMe-Domain $host;
     proxy_set_header Host $host;
@@ -189,8 +191,11 @@ def setup_nginx_webhook(domain):
     proxy_set_header Content-Type $http_content_type;
 }}
 """)
-        subprocess.run(["nginx", "-t"], capture_output=True)
-        subprocess.run(["systemctl", "reload", "nginx"], capture_output=True)
+            subprocess.run(["nginx", "-t"], capture_output=True)
+            subprocess.run(["systemctl", "reload", "nginx"], capture_output=True)
+            log_info(f"Đã tự động nạp cấu hình Webhook vào Nginx cho domain: {domain}")
+    except Exception as e:
+        log_error(f"Lỗi khi tạo cấu hình Nginx Webhook cho {domain}: {e}")
 
 def cmd_role(args):
     cwd = os.getcwd()
@@ -385,6 +390,10 @@ def cmd_deploy_add(args):
     save_config(config)
 
     log_info(f"Đã lưu cấu hình Deploy cho domain: {args.domain}")
+    
+    # Thiết lập Nginx Webhook tự động ngay khi thêm cấu hình deploy
+    setup_nginx_webhook(args.domain)
+    
     ensure_ssh_key()
     
     print("\n" + "="*64)
