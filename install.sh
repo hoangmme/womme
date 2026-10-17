@@ -69,7 +69,7 @@ _mme_completion() {
 
     local commands="deploy site role copy db update port core status"
     local deploy_commands="add pull edit list rollback logs delete"
-    local site_commands="pause start lockon lockoff clone rename wpmme thememme mmeform migrate"
+    local site_commands="pause start lockon lockoff clone rename wpmme thememme mmeform migrate webp"
     
     # Lấy danh sách tên miền từ /var/www (bỏ qua các thư mục hệ thống của WordOps)
     local domains=$(ls /var/www 2>/dev/null | grep -vE '^(html|22222|default)$')
@@ -89,6 +89,9 @@ _mme_completion() {
             site)
                 COMPREPLY=( $(compgen -W "$site_commands" -- "$cur") )
                 ;;
+            core)
+                COMPREPLY=( $(compgen -W "$domains all" -- "$cur") )
+                ;;
         esac
         return 0
     fi
@@ -106,8 +109,8 @@ _mme_completion() {
                 ;;
             site)
                 case "$subcmd" in
-                    pause|start|lockon|lockoff|clone|rename|wpmme|thememme|mmeform|migrate)
-                        COMPREPLY=( $(compgen -W "$domains" -- "$cur") )
+                    pause|start|lockon|lockoff|clone|rename|wpmme|thememme|mmeform|migrate|webp)
+                        COMPREPLY=( $(compgen -W "$domains all" -- "$cur") )
                         ;;
                 esac
                 ;;
