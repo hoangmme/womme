@@ -400,9 +400,9 @@ def run_server(port=8989):
 def process_rollback(domain, config):
     log_message(domain, "=== BẮT ĐẦU ROLLBACK ===")
     target_path = config.get("path", "").strip("/")
-    if target_path in ["", ".", "/htdocs"]:
+    if target_path in ["", ".", "/htdocs", "htdocs"]:
         base_dir = f"/var/www/{domain}"
-        releases_dir = f"{base_dir}/releases"
+        releases_dir = f"{base_dir}/mme-releases/htdocs"
         symlink_target = f"{base_dir}/htdocs"
     else:
         target_name = os.path.basename(target_path)

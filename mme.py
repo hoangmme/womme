@@ -912,8 +912,171 @@ def cmd_deploy_pull(args):
     run_daemon("--run", args.domain)
 
 def cmd_deploy_rollback(args):
-    log_info(f"Đang kích hoạt Rollback cho {args.domain}...")
-    run_daemon("--rollback", args.domain)
+    domain = args.domain
+    config = load_config()
+    
+    # 1. Tìm cấu hình deploy của domain
+    conf_list = config.get(domain, [])
+    if isinstance(conf_list, dict):
+        conf_list = [conf_list]
+        
+    selected_conf = None
+    if not conf_list:
+        default_releases_dir = f"/var/www/{domain}/mme-releases/htdocs"
+        if not os.path.exists(default_releases_dir):
+            default_releases_dir = f"/var/www/{domain}/mme-releases"
+        if not os.path.exists(default_releases_dir):
+            log_error(f"Domain {domain} chưa có cấu hình deploy và không tìm thấy thư mục mme-releases.")
+            return
+        selected_conf = {"path": ""}
+    elif len(conf_list) == 1:
+        selected_conf = conf_list[0]
+    else:
+        print(f"\nDomain \033[96m{domain}\033[0m đang có {len(conf_list)} cấu hình deploy:")
+        for i, c in enumerate(conf_list):
+            p = c.get('path') or 'htdocs (gốc)'
+            print(f"   [{i+1}] Path: {p} (Repo: {c.get('repo')})")
+        ans = input(f"   -> Chọn cấu hình muốn rollback (1-{len(conf_list)}) [Mặc định: 1]: ").strip()
+        idx = int(ans) - 1 if (ans.isdigit() and 1 <= int(ans) <= len(conf_list)) else 0
+        selected_conf = conf_list[idx]
+
+    target_path = selected_conf.get("path", "").strip("/")
+    if target_path in ["", ".", "htdocs", "/htdocs"]:
+        releases_dir = f"/var/www/{domain}/mme-releases/htdocs"
+        symlink_target = f"/var/www/{domain}/htdocs"
+    else:
+        target_name = os.path.basename(target_path)
+        releases_dir = f"/var/www/{domain}/mme-releases/{target_name}"
+        symlink_target = f"/var/www/{domain}/htdocs/{target_path}"
+
+    if not os.path.exists(releases_dir):
+        legacy_dir = f"/var/www/{domain}/releases"
+        if os.path.exists(legacy_dir):
+            releases_dir = legacy_dir
+        else:
+            log_error(f"Không tìm thấy thư mục lưu trữ releases tại: {releases_dir}")
+            return
+
+    # 2. Quét toàn bộ các bản release
+    all_entries = os.listdir(releases_dir)
+    releases = []
+    for entry in sorted(all_entries, reverse=True):
+        full_p = os.path.join(releases_dir, entry)
+        if os.path.isdir(full_p):
+            releases.append((entry, full_p))
+
+    if not releases:
+        log_error(f"Không có bản release nào trong {releases_dir}")
+        return
+
+    # 3. Xác định bản hiện tại đang chạy
+    current_active = ""
+    if os.path.islink(symlink_target):
+        try:
+            current_active = os.path.realpath(symlink_target)
+        except:
+            current_active = ""
+
+    # 4. Hiển thị danh sách cho người dùng chọn
+    target_arg = getattr(args, "target", None)
+    chosen_item = None
+    
+    if target_arg:
+        for r_name, r_path in releases:
+            if target_arg in r_name:
+                chosen_item = (r_name, r_path)
+                break
+        if not chosen_item:
+            log_error(f"Không tìm thấy bản release khớp với: {target_arg}")
+            return
+    else:
+        print("\n" + "\033[96m="*72 + "\033[0m")
+        print(f" \033[1;93mDANH SÁCH BẢN RELEASE CỦA DOMAIN: {domain}\033[0m")
+        print("\033[96m="*72 + "\033[0m")
+        
+        default_choice = 1
+        for idx, (r_name, r_path) in enumerate(releases):
+            is_active = (r_path == current_active)
+            if is_active:
+                status = " \033[1;92m👉 [ĐANG CHẠY / ACTIVE]\033[0m"
+            else:
+                status = ""
+                
+            commit_file = os.path.join(r_path, ".mme_commit")
+            commit_info = ""
+            if os.path.exists(commit_file):
+                try:
+                    with open(commit_file, "r") as cf:
+                        commit_info = cf.read().strip()
+                except:
+                    pass
+                    
+            if r_name.isdigit() and len(r_name) == 14:
+                fmt_name = f"{r_name[:4]}-{r_name[4:6]}-{r_name[6:8]} {r_name[8:10]}:{r_name[10:12]}:{r_name[12:]}"
+            elif r_name.startswith("original_backup_"):
+                ts = r_name.replace("original_backup_", "")
+                if len(ts) == 14 and ts.isdigit():
+                    fmt_name = f"{r_name} ({ts[:4]}-{ts[4:6]}-{ts[6:8]} {ts[8:10]}:{ts[10:12]}:{ts[12:]} - Bản gốc)"
+                else:
+                    fmt_name = f"{r_name} (Bản gốc ban đầu)"
+            else:
+                fmt_name = r_name
+
+            print(f" [{idx+1}] \033[96m{fmt_name}\033[0m{status}")
+            if commit_info:
+                print(f"     └─ Commit: \033[90m{commit_info}\033[0m")
+
+        print("\033[96m="*72 + "\033[0m")
+        
+        # Mặc định gợi ý bản liền trước bản active
+        default_choice = 2 if len(releases) >= 2 else 1
+        for idx, (r_name, r_path) in enumerate(releases):
+            if r_path != current_active:
+                default_choice = idx + 1
+                break
+                
+        ans = input(f"👉 Chọn số thứ tự bản release muốn quay về (1-{len(releases)}) [Mặc định: {default_choice}]: ").strip()
+        choice_idx = int(ans) - 1 if (ans.isdigit() and 1 <= int(ans) <= len(releases)) else (default_choice - 1)
+        chosen_item = releases[choice_idx]
+
+    chosen_name, chosen_path = chosen_item
+    
+    if chosen_path == current_active:
+        log_info(f"Bản release '{chosen_name}' đang là bản chạy hiện tại, không cần rollback.")
+        return
+
+    # 5. Tiến hành Rollback
+    log_info(f"Đang Rollback {domain} về bản: \033[1;92m{chosen_name}\033[0m...")
+    subprocess.run(f"ln -sfn {chosen_path} {symlink_target}", shell=True)
+    
+    owner = "www-data"
+    try:
+        import pwd
+        stat_info = os.stat(f"/var/www/{domain}")
+        owner = pwd.getpwuid(stat_info.st_uid)[0]
+    except:
+        owner = "www-data"
+        
+    subprocess.run(f"chown -h {owner}:www-data {symlink_target}", shell=True)
+    subprocess.run("wo clean --all", shell=True)
+    subprocess.run("systemctl reload 'php*-fpm' 2>/dev/null || true", shell=True)
+    
+    # Ghi log
+    log_file = f"/var/log/womme/{domain}.log"
+    os.makedirs(os.path.dirname(log_file), exist_ok=True)
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    with open(log_file, "a") as lf:
+        lf.write(f"[{timestamp}] === ROLLBACK THÀNH CÔNG VỀ BẢN: {chosen_name} ===\n")
+        
+    # Hỏi người dùng có muốn xóa bản bị lỗi vừa rồi không
+    if current_active and not os.path.basename(current_active).startswith("original_backup"):
+        del_name = os.path.basename(current_active)
+        del_ans = input(f"\nBạn có muốn XÓA bản release bị lỗi ({del_name}) không? [y/N]: ").strip().lower()
+        if del_ans == 'y':
+            shutil.rmtree(current_active, ignore_errors=True)
+            log_info(f"Đã xóa bản release: {del_name}")
+
+    print(f"\n\033[1;92m🎉 ROLLBACK HOÀN TẤT! Website {domain} đã chuyển sang bản: {chosen_name}\033[0m\n")
 
 def cmd_deploy_logs(args):
     log_file = f"/var/log/womme/{args.domain}.log"
@@ -2203,6 +2366,7 @@ def main():
     # deploy rollback
     deploy_rollback = deploy_sub.add_parser("rollback", help="Khôi phục code bản trước đó")
     deploy_rollback.add_argument("domain", help="Tên miền")
+    deploy_rollback.add_argument("target", nargs="?", default=None, help="Mã timestamp bản release cần rollback (tùy chọn)")
     deploy_rollback.set_defaults(func=cmd_deploy_rollback)
     
     # deploy logs
