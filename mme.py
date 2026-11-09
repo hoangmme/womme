@@ -1783,9 +1783,13 @@ def perform_db_sync(wp_root, wp_config, target_wp_root, old_domain, new_domain, 
     reset_db_cmd = f"cd {target_wp_root} && wp db reset --yes --allow-root"
     subprocess.run(ssh_cmd_base + [reset_db_cmd])
     
-    # 4. Xuất và nạp luồng GZIP Database
+    # 3.5 Tự động sửa chữa bảng lỗi (REPAIR) trên VPS nguồn trước khi xuất
+    print("\n[DB-3.5] Kiểm tra và tự động sửa chữa (REPAIR) bảng dữ liệu nguồn...")
+    subprocess.run(["bash", "-lc", f"wp db repair --path={wp_root} --allow-root 2>/dev/null || true"])
+    
+    # 4. Xuất và nạp luồng GZIP Database (thêm --force để không bị đứt đoạn giữa chừng nếu có bảng log bị crash)
     print(f"\n[DB-4] Đang nén & chuyển luồng Database sang {new_domain}...")
-    export_cmd = f"wp db export - --allow-root --path={wp_root} | gzip"
+    export_cmd = f"wp db export - --allow-root --path={wp_root} --force | gzip"
     import_cmd = f"cd {target_wp_root} && gunzip | wp db import - --allow-root"
     ssh_full_cmd = f"ssh -i {ssh_key} -p {ssh_port} -o StrictHostKeyChecking=no -o BatchMode=yes {ssh_user}@{ssh_host} '{import_cmd}'"
     full_db_cmd = f"{export_cmd} | {ssh_full_cmd}"
