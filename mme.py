@@ -1221,6 +1221,8 @@ def cmd_site_clone(args):
     if source_prefix:
         subprocess.run(['bash', '-lc', f"wp config set table_prefix {source_prefix} --type=variable --path={dest_path} --allow-root"])
         
+    # Làm sạch database đích trước khi import để không lẫn bảng cũ
+    subprocess.run(['bash', '-lc', f"wp db reset --yes --path={dest_path} --allow-root 2>/dev/null || true"])
     subprocess.run(['bash', '-lc', f"wp db export /tmp/mme_clone_db.sql --path={source_path} --allow-root"])
     subprocess.run(['bash', '-lc', f"wp db import /tmp/mme_clone_db.sql --path={dest_path} --allow-root"])
     if os.path.exists(f"/tmp/mme_clone_db.sql"):
@@ -1569,6 +1571,7 @@ def cmd_site_copy(args):
     import_sh = ""
     if source_prefix:
         import_sh += f"wp config set table_prefix {source_prefix} --type=variable --path={dest_dir} --allow-root && "
+    import_sh += f"wp db reset --yes --path={dest_dir} --allow-root 2>/dev/null || true; "
     import_sh += f"wp db import {tmp_sql} --path={dest_dir} --allow-root"
     if old_domain and new_domain:
         import_sh += f" && wp search-replace '//{old_domain}' '//{new_domain}' --all-tables --path={dest_dir} --allow-root"
@@ -1588,16 +1591,12 @@ def cmd_site_copy(args):
 
     log_info(f"✅ Đã copy xong website sang VPS {ip}!")
 
-def cmd_site_migrate(args):
-    old_domain = args.old.strip()
-    new_domain = args.new.strip()
-    
-    # Kiểm tra tránh truyền nhầm đường dẫn (vd: /var/www/...) thay vì domain
+def prepare_migration_targets(old_domain, new_domain, action_title="MIGRATE WEBSITE"):
     if "/" in old_domain or "/" in new_domain:
         log_error("Tên miền không hợp lệ! Vui lòng chỉ nhập tên miền (VD: old.com new.com). Không nhập đường dẫn thư mục.")
-        return
+        return None
         
-    print(f"\n--- MIGRATE WEBSITE: {old_domain} -> {new_domain} ---")
+    print(f"\n--- {action_title}: {old_domain} -> {new_domain} ---")
     
     # 1. Source Detection
     print("\n[1] Bắt đầu kiểm tra VPS Nguồn...")
@@ -1674,7 +1673,7 @@ def cmd_site_migrate(args):
         
     if not ssh_host:
         log_error("Không thể phân tích địa chỉ VPS đích.")
-        return
+        return None
         
     # 3. SSH Key Management
     ensure_ssh_key(show_deploy_info=False)
@@ -1713,7 +1712,7 @@ def cmd_site_migrate(args):
     res = subprocess.run(ssh_cmd_base + ["command -v wo"], capture_output=True, text=True)
     if not res.stdout.strip():
         log_error("VPS đích chưa cài đặt WordOps. Vui lòng cài WordOps trước khi migrate.")
-        return
+        return None
     print("   ✅ WordOps: Đã cài đặt")
     
     # Check Domain
@@ -1722,75 +1721,92 @@ def cmd_site_migrate(args):
     if "YES" not in res.stdout:
         log_error(f"Website đích chưa được tạo trên VPS. Vui lòng chạy lệnh sau trên VPS đích trước:")
         print(f"   wo site create {new_domain} --wp --php82 --le")
-        return
+        return None
     print(f"   ✅ Website: Đã tồn tại thư mục {target_wp_root}")
     
     # Check WP-CLI
     res = subprocess.run(ssh_cmd_base + ["command -v wp"], capture_output=True, text=True)
     if not res.stdout.strip():
         log_error("VPS đích chưa cài đặt WP-CLI.")
-        return
-        
-    print("\n   🚀 MỌI THỨ ĐÃ SẴN SÀNG ĐỂ BẮT ĐẦU MIGRATE!")
-    ans = input("   Bạn có muốn tiến hành ngay bây giờ? [Y/n]: ").strip().lower()
-    if ans == 'n':
-        return
-        
-    # 6. Backup target site
-    print("\n[5] Đang thực hiện backup thư mục đích...")
-    backup_folder = f"/var/www/{new_domain}/htdocs_backup_{datetime.now().strftime('%Y%m%d%H%M%S')}"
-    subprocess.run(ssh_cmd_base + [f"mv {target_wp_root} {backup_folder} && mkdir -p {target_wp_root}"])
+        return None
+
+    return {
+        "wp_root": wp_root,
+        "wp_config": wp_config,
+        "target_wp_root": target_wp_root,
+        "ssh_cmd_base": ssh_cmd_base,
+        "ssh_key": ssh_key,
+        "ssh_port": ssh_port,
+        "ssh_user": ssh_user,
+        "ssh_host": ssh_host
+    }
+
+
+def perform_db_sync(wp_root, wp_config, target_wp_root, old_domain, new_domain, ssh_cmd_base, ssh_key, ssh_port, ssh_user, ssh_host):
+    print("\n" + "="*68)
+    print(" 🔄 TIẾN HÀNH ĐỒNG BỘ VÀ XỬ LÝ DATABASE SANG VPS ĐÍCH")
+    print("="*68)
     
-    # 7. Rsync Source Code
-    print("\n[6] Đang đồng bộ Source Code (Rsync)...")
-    rsync_cmd = [
-        "rsync", "-avzL",
-        "--exclude=wp-content/cache/",
-        "--exclude=*.log",
-        "--exclude=wp-config.php",
-        "--exclude=.user.ini",
-        "-e", f"ssh -i {ssh_key} -p {ssh_port} -o StrictHostKeyChecking=no -o BatchMode=yes",
-        f"{wp_root}/",
-        f"{ssh_user}@{ssh_host}:{target_wp_root}/"
-    ]
-    # We use subprocess.call to show the output in real-time
-    subprocess.call(rsync_cmd)
-    
-    # 8. Read source table_prefix and update target wp-config.php if needed
-    print("\n[7] Kiểm tra và đồng bộ Table Prefix...")
-    source_prefix = "wp_"
+    # 1. Phát hiện table_prefix nguồn bằng WP-CLI (chuẩn xác nhất), fallback regex
+    print("\n[DB-1] Kiểm tra Table Prefix nguồn...")
+    source_prefix = ""
     try:
-        with open(wp_config, "r") as f:
-            for line in f:
-                if "$table_prefix" in line and "=" in line:
-                    # Parse: $table_prefix = 'wp_';
-                    parts = line.split("=")
-                    if len(parts) > 1:
-                        val = parts[1].split(";")[0].strip().strip("'").strip('"')
-                        if val:
-                            source_prefix = val
-                            break
+        source_prefix_cmd = ["bash", "-lc", f"wp config get table_prefix --path={wp_root} --allow-root"]
+        r = subprocess.run(source_prefix_cmd, capture_output=True, text=True)
+        source_prefix = r.stdout.strip()
     except:
-        pass
+        source_prefix = ""
+        
+    if not source_prefix and wp_config and os.path.isfile(wp_config):
+        try:
+            import re
+            with open(wp_config, "r") as f:
+                content = f.read()
+                m = re.search(r"\$table_prefix\s*=\s*['\"]([^'\"]+)['\"];", content)
+                if m:
+                    source_prefix = m.group(1).strip()
+        except:
+            pass
+            
+    if not source_prefix:
+        source_prefix = "wp_"
+        
+    print(f"   -> Table prefix nguồn phát hiện: \033[1;92m{source_prefix}\033[0m")
     
-    print(f"   -> Table prefix ở nguồn: {source_prefix}")
-    # Update target table_prefix using wp-cli
-    set_prefix_cmd = f"cd {target_wp_root} && wp config set table_prefix {source_prefix} --type=variable --allow-root"
+    # 2. Đồng bộ table_prefix sang wp-config.php trên VPS đích
+    print("\n[DB-2] Đồng bộ Table Prefix sang wp-config.php đích...")
+    set_prefix_cmd = f"cd {target_wp_root} && wp config set table_prefix '{source_prefix}' --type=variable --allow-root"
     subprocess.run(ssh_cmd_base + [set_prefix_cmd])
     
-    # 9. Database stream gzip
-    print("\n[8] Đang chuyển Database bằng luồng nén GZIP...")
+    # 3. DỌN SẠCH DATABASE ĐÍCH (RESET) để không bị trộn lẫn bảng cũ (wp_) với bảng mới (wp76_)
+    print("\n[DB-3] Dọn sạch Database đích (Tránh xung đột/trộn lẫn 2 tiền tố bảng)...")
+    reset_db_cmd = f"cd {target_wp_root} && wp db reset --yes --allow-root"
+    subprocess.run(ssh_cmd_base + [reset_db_cmd])
+    
+    # 4. Xuất và nạp luồng GZIP Database
+    print(f"\n[DB-4] Đang nén & chuyển luồng Database sang {new_domain}...")
     export_cmd = f"wp db export - --allow-root --path={wp_root} | gzip"
     import_cmd = f"cd {target_wp_root} && gunzip | wp db import - --allow-root"
     ssh_full_cmd = f"ssh -i {ssh_key} -p {ssh_port} -o StrictHostKeyChecking=no -o BatchMode=yes {ssh_user}@{ssh_host} '{import_cmd}'"
-    
     full_db_cmd = f"{export_cmd} | {ssh_full_cmd}"
-    subprocess.call(full_db_cmd, shell=True)
+    res_code = subprocess.call(full_db_cmd, shell=True)
+    if res_code != 0:
+        log_error("Lỗi trong quá trình nạp Database sang VPS đích!")
+        return False
+    print("   ✅ Đã import Database thành công vào VPS đích.")
     
-    # 10. Search and replace
-    print("\n[9] Đang thực hiện Search & Replace Database...")
-    
-    # Tự động quét tìm domain thực tế đang lưu trong Database nguồn (phòng trường hợp DB gốc clone từ domain khác)
+    # 5. Fix phân quyền usermeta capabilities (Nếu tiền tố khác wp_)
+    if source_prefix != "wp_":
+        print(f"\n[DB-5] Kiểm tra và đồng bộ meta_key capabilities cho tiền tố '{source_prefix}'...")
+        fix_meta_sql = (
+            f"UPDATE {source_prefix}usermeta SET meta_key = '{source_prefix}capabilities' WHERE meta_key LIKE '%capabilities'; "
+            f"UPDATE {source_prefix}usermeta SET meta_key = '{source_prefix}user_level' WHERE meta_key LIKE '%user_level'; "
+            f"UPDATE {source_prefix}options SET option_name = '{source_prefix}user_roles' WHERE option_name LIKE '%user_roles';"
+        )
+        subprocess.run(ssh_cmd_base + [f"cd {target_wp_root} && wp db query \"{fix_meta_sql}\" --allow-root 2>/dev/null || true"])
+        
+    # 6. Search & Replace domain
+    print("\n[DB-6] Đang thực hiện Search & Replace URL tên miền...")
     source_db_domains = set([old_domain])
     try:
         from urllib.parse import urlparse
@@ -1819,12 +1835,16 @@ def cmd_site_migrate(args):
         sr_cmd = f"cd {target_wp_root} && wp search-replace '{old_str}' '{new_str}' --all-tables --allow-root"
         subprocess.run(ssh_cmd_base + [sr_cmd])
         
-    # Flush Elementor CSS nếu website dùng Elementor
+    # 7. Vô hiệu hóa các plugin bảo mật/2FA có thể chặn login trên IP/domain mới
+    print("\n[DB-7] Tự động tạm tắt các plugin bảo mật/2FA tránh bị khóa đăng nhập...")
+    deactivate_cmd = f"cd {target_wp_root} && wp plugin deactivate wordfence wordfence-login-security wps-hide-login two-factor 2fa-secret --allow-root 2>/dev/null || true"
+    subprocess.run(ssh_cmd_base + [deactivate_cmd])
+    print("   ℹ️ Đã tạm tắt Wordfence/2FA/WPS-Hide-Login (nếu có). Bạn có thể kích hoạt lại sau khi đăng nhập thành công.")
+    
+    # 8. Flush Cache & Permissions
+    print("\n[DB-8] Dọn dẹp cache và phân quyền...")
     subprocess.run(ssh_cmd_base + [f"cd {target_wp_root} && wp elementor flush-css --allow-root 2>/dev/null || true"])
-        
-    # 11. Flush cache & fix permissions
-    print("\n[10] Dọn dẹp Cache và phân quyền...")
-    subprocess.run(ssh_cmd_base + [f"cd {target_wp_root} && wp cache flush --allow-root"])
+    subprocess.run(ssh_cmd_base + [f"cd {target_wp_root} && wp cache flush --allow-root 2>/dev/null || true"])
     subprocess.run(ssh_cmd_base + ["wo clean --all 2>/dev/null || true"])
     subprocess.run(ssh_cmd_base + ["systemctl reload 'php*-fpm' 2>/dev/null || true"])
     
@@ -1834,22 +1854,143 @@ def cmd_site_migrate(args):
                f"(chmod 640 /var/www/{new_domain}/wp-config.php 2>/dev/null || chmod 640 {target_wp_root}/wp-config.php 2>/dev/null || true)"
     subprocess.run(ssh_cmd_base + [fix_perm])
     
-    # 12. Health check
+    # 9. Danh sách Admin & Đổi mật khẩu tương tác
+    print("\n" + "="*68)
+    print(" 👤 DANH SÁCH TÀI KHOẢN QUẢN TRỊ (ADMIN) CỦA WEBSITE ĐÍCH:")
+    print("="*68)
+    user_list_cmd = f"cd {target_wp_root} && wp user list --role=administrator --fields=ID,user_login,user_email,roles --allow-root 2>/dev/null"
+    res_users = subprocess.run(ssh_cmd_base + [user_list_cmd], capture_output=True, text=True)
+    if res_users.stdout.strip():
+        print(res_users.stdout.strip())
+    else:
+        fallback_user_cmd = f"cd {target_wp_root} && wp user list --fields=ID,user_login,user_email --allow-root 2>/dev/null"
+        res_fb = subprocess.run(ssh_cmd_base + [fallback_user_cmd], capture_output=True, text=True)
+        print(res_fb.stdout.strip() if res_fb.stdout.strip() else "Không tìm thấy user nào.")
+
+    print("\n💡 Lưu ý: Khi migrate xong, bạn cần đăng nhập bằng tài khoản Admin của website gốc.")
+    ans_pass = input("👉 Bạn có muốn đặt lại mật khẩu cho tài khoản Admin ngay tại đây không? [y/N]: ").strip().lower()
+    if ans_pass == 'y':
+        admin_id = input("   -> Nhập User ID hoặc Username cần đổi mật khẩu [Mặc định: 1]: ").strip()
+        if not admin_id:
+            admin_id = "1"
+        new_password = input("   -> Nhập mật khẩu mới muốn đặt: ").strip()
+        if new_password:
+            set_pass_cmd = f"cd {target_wp_root} && wp user update {admin_id} --user_pass='{new_password}' --allow-root"
+            res_pass = subprocess.run(ssh_cmd_base + [set_pass_cmd], capture_output=True, text=True)
+            if "Success" in res_pass.stdout:
+                print(f"   ✅ Đã cập nhật mật khẩu mới cho User {admin_id} thành công!")
+            else:
+                print(f"   ⚠️ Kết quả: {res_pass.stdout.strip()} {res_pass.stderr.strip()}")
+                
+    return True
+
+
+def cmd_site_migrate(args):
+    old_domain = args.old.strip()
+    new_domain = args.new.strip()
+    db_only = getattr(args, "db_only", False)
+    
+    if db_only:
+        cmd_site_migrate_db(args)
+        return
+        
+    targets = prepare_migration_targets(old_domain, new_domain, action_title="MIGRATE WEBSITE (FULL CODE + DB)")
+    if not targets:
+        return
+        
+    print("\n   🚀 MỌI THỨ ĐÃ SẴN SÀNG ĐỂ BẮT ĐẦU MIGRATE TOÀN DIỆN!")
+    ans = input("   Bạn có muốn tiến hành ngay bây giờ? [Y/n]: ").strip().lower()
+    if ans == 'n':
+        return
+        
+    wp_root = targets["wp_root"]
+    wp_config = targets["wp_config"]
+    target_wp_root = targets["target_wp_root"]
+    ssh_cmd_base = targets["ssh_cmd_base"]
+    ssh_key = targets["ssh_key"]
+    ssh_port = targets["ssh_port"]
+    ssh_user = targets["ssh_user"]
+    ssh_host = targets["ssh_host"]
+
+    # 1. Backup target site
+    print("\n[5] Đang thực hiện backup thư mục đích...")
+    backup_folder = f"/var/www/{new_domain}/htdocs_backup_{datetime.now().strftime('%Y%m%d%H%M%S')}"
+    subprocess.run(ssh_cmd_base + [f"mv {target_wp_root} {backup_folder} && mkdir -p {target_wp_root}"])
+    
+    # 2. Rsync Source Code
+    print("\n[6] Đang đồng bộ Source Code (Rsync)...")
+    rsync_cmd = [
+        "rsync", "-avzL",
+        "--exclude=wp-content/cache/",
+        "--exclude=*.log",
+        "--exclude=wp-config.php",
+        "--exclude=.user.ini",
+        "-e", f"ssh -i {ssh_key} -p {ssh_port} -o StrictHostKeyChecking=no -o BatchMode=yes",
+        f"{wp_root}/",
+        f"{ssh_user}@{ssh_host}:{target_wp_root}/"
+    ]
+    subprocess.call(rsync_cmd)
+    
+    # 3. Synchronize Database
+    sync_ok = perform_db_sync(wp_root, wp_config, target_wp_root, old_domain, new_domain, ssh_cmd_base, ssh_key, ssh_port, ssh_user, ssh_host)
+    if not sync_ok:
+        return
+        
+    # 4. Health check
     print("\n[11] Health Check sau Migrate...")
-    # Check Nginx
     res = subprocess.run(ssh_cmd_base + ["nginx -t"], capture_output=True, text=True)
     if "successful" in res.stderr or "successful" in res.stdout:
         print("   ✅ Nginx syntax: OK")
     else:
         print("   ⚠️ Lỗi cú pháp Nginx. Hãy kiểm tra lại.")
         
-    # Check HTTP status locally
     res = subprocess.run(["curl", "-s", "-o", "/dev/null", "-w", "%{http_code}", f"https://{new_domain}"], capture_output=True, text=True)
     print(f"   ✅ HTTP Status Code ({new_domain}): {res.stdout.strip()}")
     
     print(f"\n🎉 HOÀN TẤT MIGRATE: \033[96m{old_domain}\033[0m -> \033[1;92m{new_domain}\033[0m")
     print(f"👉 Website mới đã sẵn sàng hoạt động tại: \033[1;92mhttps://{new_domain}\033[0m")
     print("   (Nếu domain đã trỏ DNS và cài SSL trước đó, website đã hoạt động ngay lập tức!)")
+
+
+def cmd_site_migrate_db(args):
+    old_domain = args.old.strip()
+    new_domain = args.new.strip()
+    
+    targets = prepare_migration_targets(old_domain, new_domain, action_title="ĐỒNG BỘ LẠI DATABASE (CHỈ DB)")
+    if not targets:
+        return
+        
+    print("\n   ⚠️ CẢNH BÁO: Lệnh này sẽ xuất Database từ website nguồn, XÓA SẠCH Database hiện tại trên VPS đích và nạp bản mới vào.")
+    print("   👉 Dữ liệu mã nguồn, theme, plugin và thư mục uploads ở VPS đích sẽ được GIỮ NGUYÊN.")
+    ans = input("   Bạn có chắc chắn muốn tiến hành đồng bộ lại Database? [Y/n]: ").strip().lower()
+    if ans == 'n':
+        return
+        
+    wp_root = targets["wp_root"]
+    wp_config = targets["wp_config"]
+    target_wp_root = targets["target_wp_root"]
+    ssh_cmd_base = targets["ssh_cmd_base"]
+    ssh_key = targets["ssh_key"]
+    ssh_port = targets["ssh_port"]
+    ssh_user = targets["ssh_user"]
+    ssh_host = targets["ssh_host"]
+
+    sync_ok = perform_db_sync(wp_root, wp_config, target_wp_root, old_domain, new_domain, ssh_cmd_base, ssh_key, ssh_port, ssh_user, ssh_host)
+    if not sync_ok:
+        return
+
+    # Health check
+    res = subprocess.run(ssh_cmd_base + ["nginx -t"], capture_output=True, text=True)
+    if "successful" in res.stderr or "successful" in res.stdout:
+        print("   ✅ Nginx syntax: OK")
+    else:
+        print("   ⚠️ Lỗi cú pháp Nginx. Hãy kiểm tra lại.")
+        
+    res = subprocess.run(["curl", "-s", "-o", "/dev/null", "-w", "%{http_code}", f"https://{new_domain}"], capture_output=True, text=True)
+    print(f"   ✅ HTTP Status Code ({new_domain}): {res.stdout.strip()}")
+
+    print(f"\n🎉 HOÀN TẤT ĐỒNG BỘ DATABASE: \033[96m{old_domain}\033[0m -> \033[1;92m{new_domain}\033[0m")
+    print(f"👉 Dữ liệu Database đã được cập nhật thành công, sạch sẽ và sẵn sàng hoạt động tại: \033[1;92mhttps://{new_domain}\033[0m")
 
 
 def cmd_site_webp(args):
@@ -2428,7 +2569,14 @@ def main():
     site_migrate = site_sub.add_parser("migrate", help="Di chuyển toàn bộ website sang VPS mới")
     site_migrate.add_argument("old", help="Tên miền cũ (VD: old.com)")
     site_migrate.add_argument("new", help="Tên miền mới (VD: new.com)")
+    site_migrate.add_argument("--db-only", action="store_true", help="Chỉ chuyển/đồng bộ Database, bỏ qua mã nguồn")
     site_migrate.set_defaults(func=cmd_site_migrate)
+
+    # site migrate-db (aliases: db-import, db-sync)
+    site_migratedb = site_sub.add_parser("migrate-db", aliases=["db-import", "db-sync"], help="Chỉ chuyển/đồng bộ Database từ website cũ sang website mới")
+    site_migratedb.add_argument("old", help="Tên miền cũ (VD: old.com)")
+    site_migratedb.add_argument("new", help="Tên miền mới (VD: new.com)")
+    site_migratedb.set_defaults(func=cmd_site_migrate_db)
 
     # site webp
     site_webp = site_sub.add_parser("webp", help="Chuyển toàn bộ ảnh JPEG/PNG sang WebP và đồng bộ DB")

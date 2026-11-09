@@ -69,7 +69,7 @@ _mme_completion() {
 
     local commands="deploy site role copy db update port core status"
     local deploy_commands="add pull edit list rollback logs delete"
-    local site_commands="pause start lockon lockoff clone rename wpmme thememme mmeform migrate webp"
+    local site_commands="pause start lockon lockoff clone rename wpmme thememme mmeform migrate migrate-db db-import db-sync webp"
     
     # Lấy danh sách tên miền từ /var/www (bỏ qua các thư mục hệ thống của WordOps)
     local domains=$(ls /var/www 2>/dev/null | grep -vE '^(html|22222|default)$')
@@ -109,7 +109,7 @@ _mme_completion() {
                 ;;
             site)
                 case "$subcmd" in
-                    pause|start|lockon|lockoff|clone|rename|wpmme|thememme|mmeform|migrate|webp)
+                    pause|start|lockon|lockoff|clone|rename|wpmme|thememme|mmeform|migrate|migrate-db|db-import|db-sync|webp)
                         COMPREPLY=( $(compgen -W "$domains all" -- "$cur") )
                         ;;
                 esac
@@ -118,7 +118,7 @@ _mme_completion() {
         return 0
     fi
     
-    if [[ $cword -eq 4 && "$cmd" == "site" && ( "$subcmd" == "clone" || "$subcmd" == "migrate" || "$subcmd" == "rename" ) ]]; then
+    if [[ $cword -eq 4 && "$cmd" == "site" && ( "$subcmd" == "clone" || "$subcmd" == "migrate" || "$subcmd" == "migrate-db" || "$subcmd" == "db-import" || "$subcmd" == "db-sync" || "$subcmd" == "rename" ) ]]; then
         COMPREPLY=( $(compgen -W "$domains" -- "$cur") )
         return 0
     fi
@@ -158,6 +158,7 @@ echo -e " \e[96mmme site rename <old> <new>\e[0m  (Đổi tên miền website)"
 echo -e " \e[96mmme port <num>\e[0m               (Thay đổi port SSH của VPS)"
 echo -e " \e[96mmme db\e[0m                       (Sửa cấu hình MySQL/MariaDB)"
 echo -e " \e[96mmme site migrate <old> <new>\e[0m (Di chuyển website sang VPS khác)"
+echo -e " \e[96mmme site migrate-db <old> <new>\e[0m (Chỉ đồng bộ lại Database sang VPS khác)"
 echo -e " \e[96mmme core [domain]\e[0m              (Cài WPMMe & MMeForm cho 1 hoặc tất cả web)"
 echo -e " \e[96mmme status\e[0m                   (Kiểm tra trạng thái MMe & Daemon)"
 echo -e " \e[96mmme update\e[0m                   (Cập nhật MMe CLI lên bản mới nhất)"

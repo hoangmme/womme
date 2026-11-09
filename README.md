@@ -145,12 +145,21 @@ Hệ thống sẽ hướng dẫn bạn từng bước cách cấp quyền ở VP
 mme port 2222
 ```
 
-### 9. Di chuyển website sang máy chủ khác (`migrate`)
-Lệnh này là một "CI/CD thu nhỏ" giúp bạn di chuyển toàn bộ website từ VPS cũ sang VPS mới cực kỳ an toàn (sử dụng gzip stream database để tiết kiệm dung lượng, tự động fix table_prefix):
+### 9. Di chuyển website sang máy chủ khác (`migrate` & `migrate-db`)
+Lệnh này là một "CI/CD thu nhỏ" giúp bạn di chuyển website từ VPS cũ sang VPS mới cực kỳ an toàn (sử dụng gzip stream database để tiết kiệm dung lượng, tự động phát hiện và đồng bộ table_prefix, dọn sạch DB đích tránh lẫn bảng cũ, tự động fix usermeta capabilities, tạm tắt plugin bảo mật/2FA tránh khóa login và hỗ trợ đổi mật khẩu Admin trực tiếp):
+
+- **Di chuyển toàn bộ website (Source code + Database):**
 ```bash
 mme site migrate old-domain.com new-domain.com
 ```
-Làm theo các bước hiện ra trên màn hình để chuyển dữ liệu mà không lo bị ngắt kết nối hay lỗi phân quyền.
+
+- **Chỉ đồng bộ/nạp lại Database (giữ nguyên mã nguồn htdocs ở VPS đích):**
+```bash
+mme site migrate-db old-domain.com new-domain.com
+# hoặc dùng bí danh:
+mme site db-import old-domain.com new-domain.com
+```
+Làm theo các bước hiện ra trên màn hình để chuyển dữ liệu mà không lo bị ngắt kết nối, lỗi phân quyền hay lỗi lệch table_prefix.
 
 ### 10. Kiểm tra trạng thái hệ thống (`status`)
 Kiểm tra sức khỏe hệ thống, phiên bản MMe CLI, trạng thái dịch vụ Webhook Daemon (`womme-daemon`), Nginx, kết nối SSH Deploy Key và tổng quan auto-deploy:

@@ -1,0 +1,18 @@
+# PROJECT: MMEWO (WordOps & WordPress Management Engine) | Reliable WordPress Migration & Deployment Tool
+- **Strategic Decisions:**
+  - Automated deployment and migration tool built on top of WordOps (`wo`) and WP-CLI.
+  - Safe database synchronization supporting custom table prefixes without breaking user capability metadata.
+  - Pre-import target DB wiping (`wp db reset --yes`) ensures no lingering orphan tables when source and target prefixes differ.
+- **Operational Constraints:**
+  - Standard WordOps paths: `/var/www/{domain}/htdocs` and `/var/www/{domain}/wp-config.php`.
+  - Provide dedicated database-only sync command (`mme site migrate-db` / `db-import`) to avoid re-syncing heavy uploads/themes.
+- **Status:**
+  - Done: Deploy workflow, backup, webhooks, rollback picker, fix database prefix collision and login lockout during `site migrate`, add `mme site migrate-db` (aliases `db-import`, `db-sync`).
+  - Current Focus: Ready for user testing and deployment.
+  - Next: Monitor migration feedback on different WordPress multi-site / complex setups.
+- **Flags (Drift/Critical/Entropy):**
+  - [Entropy - Resolved]: Target database accumulated orphan tables when source and target prefixes differed because `wp db import` does not drop existing tables. Resolved with automated `wp db reset --yes` and prefix sync.
+- **Cost/Impact Alerts:**
+  - None.
+- **Registry & Recovery:**
+  - Active Files: `mme.py`, `install.sh`, `README.md`, `CONTINUITY.md`
