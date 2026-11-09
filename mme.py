@@ -1795,9 +1795,48 @@ def perform_db_sync(wp_root, wp_config, target_wp_root, old_domain, new_domain, 
         return False
     print("   ✅ Đã import Database thành công vào VPS đích.")
     
-    # 5. Fix phân quyền usermeta capabilities (Nếu tiền tố khác wp_)
+    # 5. Tự động phát hiện và đồng bộ tiền tố bảng thực tế trong Database sau import
+    print("\n[DB-5] Kiểm tra và đối chiếu tiền tố bảng thực tế trong Database đích...")
+    detect_tables_sql = "SELECT table_name FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name LIKE '%users';"
+    res_detect = subprocess.run(ssh_cmd_base + [f"cd {target_wp_root} && wp db query \"{detect_tables_sql}\" --allow-root 2>/dev/null"], capture_output=True, text=True)
+    
+    users_tables = [line.strip() for line in res_detect.stdout.strip().split("\n") if line.strip() and line.strip() != "table_name"]
+    
+    real_prefix = source_prefix
+    if users_tables:
+        found_prefixes = []
+        for ut in users_tables:
+            if ut.endswith("users"):
+                p = ut[:-5]  # Bỏ đuôi 'users' để lấy tiền tố
+                found_prefixes.append(p)
+                
+        if len(found_prefixes) == 1:
+            real_prefix = found_prefixes[0]
+        elif len(found_prefixes) > 1:
+            best_prefix = found_prefixes[0]
+            max_posts = -1
+            for p in found_prefixes:
+                cnt_sql = f"SELECT count(*) FROM {p}posts;"
+                r_cnt = subprocess.run(ssh_cmd_base + [f"cd {target_wp_root} && wp db query \"{cnt_sql}\" --allow-root 2>/dev/null"], capture_output=True, text=True)
+                lines = [l.strip() for l in r_cnt.stdout.strip().split("\n") if l.strip() and not l.strip().startswith("count")]
+                cnt = int(lines[0]) if lines and lines[0].isdigit() else 0
+                if cnt > max_posts:
+                    max_posts = cnt
+                    best_prefix = p
+            real_prefix = best_prefix
+            
+        print(f"   -> Tiền tố bảng thực tế trong Database: \033[1;92m{real_prefix}\033[0m")
+        if real_prefix != source_prefix:
+            print(f"   ⚠️ Tiền tố trong Database ({real_prefix}) khác với cấu hình ({source_prefix}). Đang tự động đồng bộ lại wp-config.php...")
+            set_real_prefix_cmd = f"cd {target_wp_root} && wp config set table_prefix '{real_prefix}' --type=variable --allow-root"
+            subprocess.run(ssh_cmd_base + [set_real_prefix_cmd])
+            source_prefix = real_prefix
+    else:
+        print(f"   ℹ️ Giữ nguyên tiền tố: {source_prefix}")
+    
+    # 6. Fix phân quyền usermeta capabilities (Nếu tiền tố khác wp_)
     if source_prefix != "wp_":
-        print(f"\n[DB-5] Kiểm tra và đồng bộ meta_key capabilities cho tiền tố '{source_prefix}'...")
+        print(f"\n[DB-6] Kiểm tra và đồng bộ meta_key capabilities cho tiền tố '{source_prefix}'...")
         fix_meta_sql = (
             f"UPDATE {source_prefix}usermeta SET meta_key = '{source_prefix}capabilities' WHERE meta_key LIKE '%capabilities'; "
             f"UPDATE {source_prefix}usermeta SET meta_key = '{source_prefix}user_level' WHERE meta_key LIKE '%user_level'; "
@@ -1805,8 +1844,8 @@ def perform_db_sync(wp_root, wp_config, target_wp_root, old_domain, new_domain, 
         )
         subprocess.run(ssh_cmd_base + [f"cd {target_wp_root} && wp db query \"{fix_meta_sql}\" --allow-root 2>/dev/null || true"])
         
-    # 6. Search & Replace domain
-    print("\n[DB-6] Đang thực hiện Search & Replace URL tên miền...")
+    # 7. Search & Replace domain
+    print("\n[DB-7] Đang thực hiện Search & Replace URL tên miền...")
     source_db_domains = set([old_domain])
     try:
         from urllib.parse import urlparse
@@ -1835,14 +1874,14 @@ def perform_db_sync(wp_root, wp_config, target_wp_root, old_domain, new_domain, 
         sr_cmd = f"cd {target_wp_root} && wp search-replace '{old_str}' '{new_str}' --all-tables --allow-root"
         subprocess.run(ssh_cmd_base + [sr_cmd])
         
-    # 7. Vô hiệu hóa các plugin bảo mật/2FA có thể chặn login trên IP/domain mới
-    print("\n[DB-7] Tự động tạm tắt các plugin bảo mật/2FA tránh bị khóa đăng nhập...")
+    # 8. Vô hiệu hóa các plugin bảo mật/2FA có thể chặn login trên IP/domain mới
+    print("\n[DB-8] Tự động tạm tắt các plugin bảo mật/2FA tránh bị khóa đăng nhập...")
     deactivate_cmd = f"cd {target_wp_root} && wp plugin deactivate wordfence wordfence-login-security wps-hide-login two-factor 2fa-secret --allow-root 2>/dev/null || true"
     subprocess.run(ssh_cmd_base + [deactivate_cmd])
     print("   ℹ️ Đã tạm tắt Wordfence/2FA/WPS-Hide-Login (nếu có). Bạn có thể kích hoạt lại sau khi đăng nhập thành công.")
     
-    # 8. Flush Cache & Permissions
-    print("\n[DB-8] Dọn dẹp cache và phân quyền...")
+    # 9. Flush Cache & Permissions
+    print("\n[DB-9] Dọn dẹp cache và phân quyền...")
     subprocess.run(ssh_cmd_base + [f"cd {target_wp_root} && wp elementor flush-css --allow-root 2>/dev/null || true"])
     subprocess.run(ssh_cmd_base + [f"cd {target_wp_root} && wp cache flush --allow-root 2>/dev/null || true"])
     subprocess.run(ssh_cmd_base + ["wo clean --all 2>/dev/null || true"])
@@ -1854,16 +1893,16 @@ def perform_db_sync(wp_root, wp_config, target_wp_root, old_domain, new_domain, 
                f"(chmod 640 /var/www/{new_domain}/wp-config.php 2>/dev/null || chmod 640 {target_wp_root}/wp-config.php 2>/dev/null || true)"
     subprocess.run(ssh_cmd_base + [fix_perm])
     
-    # 9. Danh sách Admin & Đổi mật khẩu tương tác
+    # 10. Danh sách Admin & Đổi mật khẩu tương tác (skip plugins để tránh bị plugin lỗi can thiệp)
     print("\n" + "="*68)
     print(" 👤 DANH SÁCH TÀI KHOẢN QUẢN TRỊ (ADMIN) CỦA WEBSITE ĐÍCH:")
     print("="*68)
-    user_list_cmd = f"cd {target_wp_root} && wp user list --role=administrator --fields=ID,user_login,user_email,roles --allow-root 2>/dev/null"
+    user_list_cmd = f"cd {target_wp_root} && wp user list --role=administrator --fields=ID,user_login,user_email,roles --skip-plugins --skip-themes --allow-root 2>/dev/null"
     res_users = subprocess.run(ssh_cmd_base + [user_list_cmd], capture_output=True, text=True)
     if res_users.stdout.strip():
         print(res_users.stdout.strip())
     else:
-        fallback_user_cmd = f"cd {target_wp_root} && wp user list --fields=ID,user_login,user_email --allow-root 2>/dev/null"
+        fallback_user_cmd = f"cd {target_wp_root} && wp user list --fields=ID,user_login,user_email --skip-plugins --skip-themes --allow-root 2>/dev/null"
         res_fb = subprocess.run(ssh_cmd_base + [fallback_user_cmd], capture_output=True, text=True)
         print(res_fb.stdout.strip() if res_fb.stdout.strip() else "Không tìm thấy user nào.")
 
@@ -1875,7 +1914,7 @@ def perform_db_sync(wp_root, wp_config, target_wp_root, old_domain, new_domain, 
             admin_id = "1"
         new_password = input("   -> Nhập mật khẩu mới muốn đặt: ").strip()
         if new_password:
-            set_pass_cmd = f"cd {target_wp_root} && wp user update {admin_id} --user_pass='{new_password}' --allow-root"
+            set_pass_cmd = f"cd {target_wp_root} && wp user update {admin_id} --user_pass='{new_password}' --skip-plugins --skip-themes --allow-root"
             res_pass = subprocess.run(ssh_cmd_base + [set_pass_cmd], capture_output=True, text=True)
             if "Success" in res_pass.stdout:
                 print(f"   ✅ Đã cập nhật mật khẩu mới cho User {admin_id} thành công!")
